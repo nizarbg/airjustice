@@ -1,0 +1,41 @@
+# OS
+.DS_Store
+Thumbs.db
+
+# IntelliJ / Java
+**/.idea/
+**/*.iml
+**/out/
+**/target/
+
+# Gradle (if you use it)
+**/.gradle/
+**/build/
+
+# Maven wrapper logs
+**/.mvn/wrapper/maven-wrapper.jar
+
+# Spring
+**/logs/
+**/*.log
+
+# H2 local files (IMPORTANT)
+**/*.mv.db
+**/*.trace.db
+**/data/
+**/h2/
+
+# Node / React
+**/node_modules/
+**/dist/
+**/.vite/
+**/.cache/
+
+# Env secrets
+**/.env
+**/.env.*
+!**/.env.example
+
+# Misc
+*.swp
+*.swo
