@@ -50,14 +50,17 @@ export default function Checkout() {
       <main className="container">
         <div className="card">
           <h2>Payer AirJustice (Guest)</h2>
+          <p className="mt-2 text-sm text-slate-400">
+            Finalisez la protection du vol en quelques secondes.
+          </p>
           {err && <div className="alert">{err}</div>}
 
           {flight ? (
-            <p className="muted">
+            <p className="muted mt-2">
               Vol: <b>{flight.flightNumber}</b> • {flight.depIata} → {flight.arrIata}
             </p>
           ) : (
-            <p className="muted">Aucun vol sélectionné. Retournez à /check.</p>
+            <p className="muted mt-2">Aucun vol sélectionné. Retournez à /check.</p>
           )}
 
           <div className="form">
@@ -65,10 +68,10 @@ export default function Checkout() {
             <Input label="Email" type="email" value={email} onChange={(e)=>setEmail(e.target.value)} required />
             <Input label="Téléphone (SMS)" value={phone} onChange={(e)=>setPhone(e.target.value)} required />
 
-            <div style={{ marginTop: 12, display: "flex", justifyContent: "flex-end" }}>
+            <div className="mt-2 flex justify-end">
               <Button onClick={pay}>Payer (Mock)</Button>
             </div>
-            <p className="muted small" style={{ marginTop: 10 }}>
+            <p className="muted small mt-1">
               Après paiement: vous recevez Email + SMS. Nous analyserons votre vol après le voyage.
             </p>
           </div>

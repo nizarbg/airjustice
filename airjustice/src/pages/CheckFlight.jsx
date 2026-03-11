@@ -37,6 +37,9 @@ export default function CheckFlight() {
       <main className="container">
         <div className="card">
           <h2>Ajouter la protection AirJustice</h2>
+          <p className="mt-2 max-w-3xl text-sm text-slate-400">
+            Recherchez votre vol, choisissez le meilleur trajet, puis continuez vers le paiement sécurisé.
+          </p>
           {err && <div className="alert">{err}</div>}
 
           <form className="form" onSubmit={search}>
@@ -49,17 +52,17 @@ export default function CheckFlight() {
         </div>
 
         {results.length > 0 && (
-          <div className="card" style={{ marginTop: 14 }}>
+          <div className="card mt-4">
             <h3>Résultats</h3>
-            <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
+            <div className="mt-4 flex flex-col gap-3">
               {results.map((f, idx) => (
-                <div key={idx} className="card" style={{ padding: 14 }}>
-                  <b>{f.flightNumber}</b> • {f.airline}<br/>
-                  {f.depIata} → {f.arrIata}<br/>
-                  <span className="muted small">
+                <div key={idx} className="rounded-2xl border border-white/10 bg-slate-950/60 p-4">
+                  <p className="text-base font-semibold text-white">{f.flightNumber} • {f.airline}</p>
+                  <p className="mt-1 text-slate-200">{f.depIata} → {f.arrIata}</p>
+                  <span className="muted small mt-1 block">
                     Départ: {new Date(f.scheduledDeparture).toLocaleString()} • Arrivée: {new Date(f.scheduledArrival).toLocaleString()}
                   </span>
-                  <div style={{ marginTop: 12, display: "flex", justifyContent: "flex-end" }}>
+                  <div className="mt-3 flex justify-end">
                     <Button onClick={() => selectFlight(f)}>Sélectionner</Button>
                   </div>
                 </div>

@@ -8,5 +8,5 @@ public record AddCollaboratorRequest(
         String username,
         @Email @NotBlank String email,
         @NotBlank String phone,
-        @NotBlank String tempPassword
+        String tempPassword
 ) {}

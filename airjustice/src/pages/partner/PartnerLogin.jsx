@@ -72,7 +72,7 @@ export default function PartnerLogin() {
     <div className="page center">
       <div className="card auth-card">
         <h2>Connexion Partenaire</h2>
-        <p className="muted">Connectez-vous avec votre email ou votre nom d’utilisateur.</p>
+        <p className="muted mt-2">Connectez-vous avec votre email ou votre nom d’utilisateur.</p>
 
         {err && <div className="alert">{err}</div>}
 

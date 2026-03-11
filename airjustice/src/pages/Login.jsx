@@ -57,7 +57,7 @@ export default function Login() {
             required
           />
 
-          <Button disabled={loading} type="submit">
+          <Button className="mt-1" disabled={loading} type="submit">
             {loading ? "Connexion..." : "Se connecter"}
           </Button>
 
@@ -70,7 +70,7 @@ export default function Login() {
           </div>
         </form>
 
-        <div className="muted small">
+        <div className="muted small mt-5 rounded-xl border border-white/10 bg-slate-950/50 px-3 py-2">
           Demo: <b>demo@airjustice.tn</b> / <b>demo123</b>
         </div>
       </div>

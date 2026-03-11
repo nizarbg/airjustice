@@ -1,7 +1,9 @@
 package com.airjustice.partner.policies;
 
-import com.airjustice.partner.entity.PartnerRole;
 import com.airjustice.partner.entity.PartnerUser;
+import com.airjustice.partner.entity.PartnerRole;
+import com.airjustice.notifications.NotifyType;
+import com.airjustice.notifications.NotificationsService;
 import com.airjustice.partner.repo.PartnerUserRepo;
 import jakarta.transaction.Transactional;
 import lombok.AllArgsConstructor;
@@ -17,6 +19,7 @@ public class PolicyService {
     private final PartnerPolicyRepo policyRepo;
     private final PolicyAuditRepo auditRepo;
     private final PartnerUserRepo userRepo;
+    private final NotificationsService notifications;
 
     private PartnerUser currentUser(String email) {
         return userRepo.findByEmailIgnoreCase(email)
@@ -85,7 +88,7 @@ public class PolicyService {
         p.setAutoAssigned(auto);
 
         if (auto) {
-            // MVP: auto-assign = actor (collab creates => assigned to that collab; principal creates => assigned to principal)
+            // MVP: auto-assign = actor
             p.setAssignedAgent(actor);
         } else {
             // Manual assign only for principal
@@ -105,6 +108,31 @@ public class PolicyService {
         policyRepo.save(p);
 
         audit(p, AuditAction.POLICY_CREATED, actor, "Création police: vol " + p.getFlightNumber());
+
+        // Notifications (optional)
+        boolean notifyEmail = Boolean.TRUE.equals(req.notifyEmail());
+        boolean notifySms = Boolean.TRUE.equals(req.notifySms());
+
+        if (notifyEmail || notifySms) {
+            // For MVP we reuse existing notifications service. If notifySms is false, NotificationsService can decide not to send SMS.
+            // Message aligned with product wording: “Activement surveillé / analysé après le voyage”
+            String msg = "AirJustice: votre vol sera analysé après le voyage. Police #" + p.getId() + " (vol " + p.getFlightNumber() + ").";
+
+            // If your NotificationsService has more granular methods, adapt here.
+            // notifyBoth likely sends email + sms; for MVP we still call it and let it decide,
+            // OR you can add two methods notifyEmailOnly/notifySmsOnly.
+            if (notifyEmail && notifySms) {
+                notifications.notifyBoth(req.clientEmail(), req.clientPhone(), NotifyType.REVIEW_STARTED, msg);
+            } else if (notifyEmail) {
+                notifications.notifyEmail(req.clientEmail(), NotifyType.REVIEW_STARTED, msg);
+            } else {
+                notifications.notifySms(req.clientPhone(), NotifyType.REVIEW_STARTED, msg);
+            }
+
+            audit(p, AuditAction.POLICY_UPDATED, actor,
+                    "Notifications envoyées: email=" + notifyEmail + ", sms=" + notifySms);
+        }
+
         return toDto(p);
     }
 
@@ -125,7 +153,7 @@ public class PolicyService {
                     }
                     if (!"ALL".equals(ss) && !p.getStatus().name().equals(ss)) return false;
 
-                    // Collab sees only their own assigned policies (limited dashboard)
+                    // Collab sees only their own assigned policies
                     if (actor.getRole() == PartnerRole.PARTNER_COLLAB) {
                         return p.getAssignedAgent() != null && p.getAssignedAgent().getId().equals(actor.getId());
                     }

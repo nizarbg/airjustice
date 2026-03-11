@@ -29,7 +29,6 @@ public class PartnerUser {
     private String phone;
     private String fullName;
 
-    @Column(nullable = false)
     private String passwordHash;
 
     // 2FA

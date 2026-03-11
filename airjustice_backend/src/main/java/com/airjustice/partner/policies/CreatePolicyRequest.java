@@ -1,22 +1,35 @@
 package com.airjustice.partner.policies;
 
-import jakarta.validation.constraints.*;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+
 import java.math.BigDecimal;
 import java.time.LocalDate;
 
+/**
+ * Extended to support notify options (email/SMS).
+ */
 public record CreatePolicyRequest(
+        // Client
         @NotBlank String clientName,
-        @Email @NotBlank String clientEmail,
+        @NotBlank String clientEmail,
         @NotBlank String clientPhone,
 
+        // Flight
         @NotBlank String flightNumber,
         @NotNull LocalDate flightDate,
         @NotBlank String depIata,
         @NotBlank String arrIata,
 
-        @NotNull @DecimalMin("0.0") BigDecimal price,
+        // Price
+        @NotNull BigDecimal price,
         @NotBlank String currency,
 
-        @NotNull Boolean autoAssign,
-        Long assignedAgentId
+        // Assignment
+        Boolean autoAssign,
+        Long assignedAgentId,
+
+        // Notifications
+        Boolean notifyEmail,
+        Boolean notifySms
 ) {}

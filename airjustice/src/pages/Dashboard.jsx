@@ -17,7 +17,7 @@ export default function Dashboard() {
       <main className="container">
         <div className="card">
           <h2>Dashboard</h2>
-          <p className="muted">Next: list “Mes vols”, add flight, purchase status, notifications.</p>
+          <p className="muted mt-2">Next: list "Mes vols", add flight, purchase status, notifications.</p>
         </div>
       </main>
     </div>
