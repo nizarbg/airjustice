@@ -73,6 +73,7 @@ export default function PartnerLogin() {
       <div className="card auth-card">
         <h2>Connexion Partenaire</h2>
         <p className="muted mt-2">Connectez-vous avec votre email ou votre nom d’utilisateur.</p>
+        <p className="muted small">Si votre dossier n’est pas encore approuvé par l’administrateur du projet, l’accès reste bloqué jusqu’à validation.</p>
 
         {err && <div className="alert">{err}</div>}
 

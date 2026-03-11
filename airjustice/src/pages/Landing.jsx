@@ -73,6 +73,7 @@ export default function Landing() {
             <NavLink to="/track">Suivre un dossier</NavLink>
             <NavLink to="/partner/login">Se connecter</NavLink>
             <NavLink to="/partner/apply">Devenir partenaire</NavLink>
+            <NavLink to="/admin/login">Admin projet</NavLink>
             <PrimaryButton to="/check">Vérifier mon vol</PrimaryButton>
           </nav>
         </div>

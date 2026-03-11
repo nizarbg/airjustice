@@ -10,22 +10,20 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 import tools.jackson.databind.ObjectMapper;
 
-import java.time.LocalDateTime;
 import java.util.*;
-import java.util.regex.Pattern;
 
 @Service
 @AllArgsConstructor
 public class PolicyDraftService {
 
     private static final Set<String> ALLOWED = Set.of("application/pdf", "image/jpeg", "image/png");
-    private static final long MAX_BYTES = 10 * 1024 * 1024; // 10MB per file (MVP)
-    private static final Pattern FLIGHT_NO = Pattern.compile("^[A-Z]{2}\\d{1,4}[A-Z]?$");
+    private static final long MAX_BYTES = 10 * 1024 * 1024; // 10MB per file
 
     private final PolicyDraftRepo draftRepo;
     private final DraftDocumentRepo docRepo;
     private final PartnerUserRepo userRepo;
-    private final ObjectMapper om = new ObjectMapper();
+    private final FlightTicketAiExtractor aiExtractor;
+    private final ObjectMapper om;
 
     private PartnerUser currentUser(String email) {
         return userRepo.findByEmailIgnoreCase(email).orElseThrow(() -> new RuntimeException("Utilisateur introuvable."));
@@ -88,8 +86,9 @@ public class PolicyDraftService {
     }
 
     /**
-     * MVP extraction: mock based on filename patterns.
-     * Later: OCR/AI pipeline.
+     * Extract flight data from uploaded documents using AI (GPT-4o vision).
+     * Falls back to on-premise regex extraction if the AI key is absent or the call fails.
+     * Privacy: see FlightTicketAiExtractor for RGPD/DSG compliance notes.
      */
     @Transactional
     public DraftExtractionDto extract(String authEmail, Long draftId) {
@@ -102,42 +101,15 @@ public class PolicyDraftService {
         var docs = docRepo.findByDraftIdOrderByUploadedAtDesc(draftId);
         if (docs.isEmpty()) throw new RuntimeException("Aucun document uploadé.");
 
-        // mock extraction
-        String passenger = "Passager";
-        boolean noFlight = true;
+        // Delegate to AI extractor (handles PDF text + image vision + local fallback)
+        DraftExtractionDto out = aiExtractor.extract(docs);
 
-        List<ExtractedSegmentDto> segs = new ArrayList<>();
-
-        for (DraftDocument doc : docs) {
-            String name = Optional.ofNullable(doc.getFilename()).orElse("").toUpperCase();
-
-            // try to find something like "TU123"
-            String foundFlight = findFlightNo(name);
-            if (foundFlight != null) {
-                noFlight = false;
-                segs.add(new ExtractedSegmentDto(
-                        foundFlight,
-                        "TUN",
-                        "CDG",
-                        "AIRLINE",
-                        LocalDateTime.now().plusDays(7).withHour(10).withMinute(30).toString(),
-                        0.85, 0.6, 0.55
-                ));
-            }
-        }
-
-        DraftExtractionDto out = new DraftExtractionDto(
-                new ExtractedPassengerDto(passenger, 0.55),
-                segs,
-                false,
-                noFlight
-        );
-
+        // Persist extracted JSON (structured only – no raw AI response stored)
         try {
             d.setExtractedJson(om.writeValueAsString(out));
         } catch (Exception ignored) {}
 
-        d.setStatus(noFlight ? DraftStatus.UPLOADED : DraftStatus.EXTRACTED);
+        d.setStatus(out.noFlightDetected() ? DraftStatus.UPLOADED : DraftStatus.EXTRACTED);
         draftRepo.save(d);
         return out;
     }
@@ -152,13 +124,6 @@ public class PolicyDraftService {
         return toDto(d, files);
     }
 
-    private String findFlightNo(String text) {
-        // brute find tokens
-        for (String token : text.replaceAll("[^A-Z0-9]", " ").split("\\s+")) {
-            if (FLIGHT_NO.matcher(token).matches()) return token;
-        }
-        return null;
-    }
 
     private DraftDto toDto(PolicyDraft d, List<DraftFileDto> files) {
         return new DraftDto(d.getId(), d.getStatus(), d.getCreatedAt(), d.getUpdatedAt(), files);

@@ -27,14 +27,11 @@ public class PartnerAccount {
     private String contactPhone;
     private String preferredLanguage; // "fr" / "ar"
 
-    // Read-only fields
-    @Column(updatable = false)
+    // Administrative verification fields (filled after initial apply, then displayed read-only in UIs)
     private String rcNumber;
 
-    @Column(updatable = false)
     private String fiscalNumber;
 
-    @Column(updatable = false)
     private String iataCode;
 
     // Balance + alerts

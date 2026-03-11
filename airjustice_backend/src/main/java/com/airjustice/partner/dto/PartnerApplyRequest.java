@@ -10,5 +10,6 @@ public record PartnerApplyRequest(
         @NotBlank String phone,
         @NotBlank String city,
         @NotBlank String country,
-        String language
+        String language,
+        @NotBlank String password
 ) {}

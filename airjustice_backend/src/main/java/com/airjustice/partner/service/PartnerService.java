@@ -65,7 +65,7 @@ public class PartnerService {
         principal.setFullName(req.managerName());
         principal.setEmail(req.email().toLowerCase());
         principal.setPhone(req.phone());
-        principal.setPasswordHash(hash.hash("ChangeMe123!")); // temporary password
+        principal.setPasswordHash(hash.hash(req.password()));
         principal.setTwoFactorEnabled(true);
         principal.setUsername(generateUsername(req.managerName(), req.agencyName()));
 
@@ -85,6 +85,14 @@ public class PartnerService {
         if (hash.matches(req.password(), user.getPasswordHash()))
             throw new RuntimeException("Email ou mot de passe incorrect.");
 
+        PartnerStatus status = user.getAccount().getStatus();
+        if (status == PartnerStatus.PENDING) {
+            throw new RuntimeException("Votre compte est en attente de validation par l’administrateur.");
+        }
+        if (status == PartnerStatus.REJECTED) {
+            throw new RuntimeException("Votre demande a été refusée par l’administrateur.");
+        }
+
         // If 2FA enabled => return tempToken and send OTP
         if (user.isTwoFactorEnabled()) {
             String otp = otpService.generate6();
@@ -103,10 +111,11 @@ public class PartnerService {
                     "otp_pending", true
             ));
 
-            return new PartnerAuthResponse(true, tempToken, null, null);
+            return new PartnerAuthResponse(true, tempToken, null, null, status.name());
         }
 
-        return new PartnerAuthResponse(false, null, issueToken(user), toDto(user));
+        activateIfVerified(user);
+        return new PartnerAuthResponse(false, null, issueToken(user), toDto(user), user.getAccount().getStatus().name());
     }
 
     public PartnerAuthResponse verifyOtp(String tempToken, OtpVerifyRequest req) {
@@ -129,7 +138,8 @@ public class PartnerService {
         user.setOtpExpiresAt(null);
         userRepo.save(user);
 
-        return new PartnerAuthResponse(false, null, issueToken(user), toDto(user));
+        activateIfVerified(user);
+        return new PartnerAuthResponse(false, null, issueToken(user), toDto(user), user.getAccount().getStatus().name());
     }
 
     public PartnerAccountLimitedDto getAccountLimited(String email) {
@@ -402,4 +412,46 @@ public class PartnerService {
         base = base.replaceAll("^\\.|\\.$", "");
         return base.length() > 30 ? base.substring(0, 30) : base;
     }
+
+    @Transactional
+    protected void activateIfVerified(PartnerUser user) {
+        if (user.getAccount().getStatus() == PartnerStatus.VERIFIED) {
+            user.getAccount().setStatus(PartnerStatus.ACTIVE);
+            accountRepo.save(user.getAccount());
+        }
+    }
+
+    @Transactional
+    public void submitVerification(
+            String principalEmail,
+            String rcNumber,
+            String fiscalNumber,
+            String iataCode,
+            MultipartFile file
+    ) throws Exception {
+        var principal = userRepo.findByEmailIgnoreCase(principalEmail.trim().toLowerCase())
+                .orElseThrow(() -> new RuntimeException("Compte partenaire introuvable."));
+
+        if (principal.getRole() != PartnerRole.PARTNER_PRINCIPAL) {
+            throw new RuntimeException("Compte principal requis.");
+        }
+
+        var acc = principal.getAccount();
+        acc.setRcNumber(rcNumber == null || rcNumber.isBlank() ? null : rcNumber.trim());
+        acc.setFiscalNumber(fiscalNumber == null || fiscalNumber.isBlank() ? null : fiscalNumber.trim());
+        acc.setIataCode(iataCode == null || iataCode.isBlank() ? null : iataCode.trim());
+        acc.setStatus(PartnerStatus.PENDING);
+        accountRepo.save(acc);
+
+        var doc = new PartnerDocument();
+        doc.setAccount(acc);
+        doc.setType("AUTHORIZATION");
+        doc.setFilename(file.getOriginalFilename());
+        doc.setContentType(file.getContentType());
+        doc.setContent(file.getBytes());
+        docRepo.save(doc);
+
+        new DocumentDto(doc.getId(), doc.getType(), doc.getFilename(), doc.getUploadedAt());
+    }
 }
+

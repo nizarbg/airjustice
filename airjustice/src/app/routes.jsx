@@ -6,6 +6,9 @@ import PartnerApply from "../pages/partner/PartnerApply";
 import PartnerLogin from "../pages/partner/PartnerLogin";
 import PartnerDashboard from "../pages/partner/PartnerDashboard";
 import PartnerProtectedRoute from "../auth/PartnerProtectedRoute";
+import AdminProtectedRoute from "../auth/AdminProtectedRoute";
+import AdminLogin from "../pages/admin/AdminLogin";
+import AdminDashboard from "../pages/admin/AdminDashboard";
 import CheckFlight from "../pages/CheckFlight";
 import Track from "../pages/Track";
 import Checkout from "../pages/CheckOut";
@@ -19,6 +22,15 @@ export const router = createBrowserRouter([
   { path: "/partner/apply", element: <PartnerApply /> },
   { path: "/partner/login", element: <PartnerLogin /> },
   { path: "/partner/verify", element: <PartnerVerification /> },
+  { path: "/admin/login", element: <AdminLogin /> },
+  {
+    path: "/admin/dashboard",
+    element: (
+      <AdminProtectedRoute>
+        <AdminDashboard />
+      </AdminProtectedRoute>
+    ),
+  },
   { path: "/check", element: <CheckFlight /> },
   { path: "/checkout", element: <Checkout /> },
   { path: "/track", element: <Track /> },

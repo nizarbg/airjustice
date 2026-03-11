@@ -4,5 +4,6 @@ public record PartnerAuthResponse(
         boolean twoFactorRequired,
         String tempToken,
         String token,
-        PartnerUserDto user
+        PartnerUserDto user,
+        String status
 ) {}
