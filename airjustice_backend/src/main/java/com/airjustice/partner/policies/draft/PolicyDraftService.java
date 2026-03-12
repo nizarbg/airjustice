@@ -86,8 +86,7 @@ public class PolicyDraftService {
     }
 
     /**
-     * Extract flight data from uploaded documents using AI (GPT-4o vision).
-     * Falls back to on-premise regex extraction if the AI key is absent or the call fails.
+     * Extract flight data from uploaded documents using Tesseract OCR + regex (on-premise).
      * Privacy: see FlightTicketAiExtractor for RGPD/DSG compliance notes.
      */
     @Transactional
@@ -101,10 +100,10 @@ public class PolicyDraftService {
         var docs = docRepo.findByDraftIdOrderByUploadedAtDesc(draftId);
         if (docs.isEmpty()) throw new RuntimeException("Aucun document uploadé.");
 
-        // Delegate to AI extractor (handles PDF text + image vision + local fallback)
+        // Delegate to OCR extractor (handles PDF text + image OCR + regex parsing)
         DraftExtractionDto out = aiExtractor.extract(docs);
 
-        // Persist extracted JSON (structured only – no raw AI response stored)
+        // Persist extracted JSON (structured only – no raw OCR text stored)
         try {
             d.setExtractedJson(om.writeValueAsString(out));
         } catch (Exception ignored) {}

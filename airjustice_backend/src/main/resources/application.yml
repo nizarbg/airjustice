@@ -25,12 +25,10 @@ app:
 airjustice:
   monitoring:
     bufferMinutesAfterFlight: 240
-  ai:
-    # Set your OpenAI API key here (or via env: AIRJUSTICE_AI_OPENAI_KEY)
-    openai-key: "${AIRJUSTICE_AI_OPENAI_KEY:}"
-    # Set to true to use real GPT-4o extraction; false = mock fallback (no API key needed)
-    enabled: true
-    # Model to use – gpt-4o supports image input and is the cheapest vision model
-    model: "gpt-4o"
-    # Max tokens for extraction response (keep low for cost control)
-    max-tokens: 512
+  ocr:
+    # Path to Tesseract tessdata directory.
+    # Leave empty to use bundled data from tess4j (no local install needed).
+    tessdata-path: "${AIRJUSTICE_OCR_TESSDATA_PATH:}"
+    # OCR language (tess4j bundles 'eng' by default – no install required).
+    # To add more languages (e.g. eng+fra), install Tesseract locally and set tessdata-path above.
+    language: "eng"

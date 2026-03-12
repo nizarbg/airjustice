@@ -425,7 +425,7 @@ export default function PartnerDashboard() {
   const addCollaborator = async () => {
     try {
       if (!addCollab.firstName.trim() || !addCollab.lastName.trim() || !addCollab.email.trim()) { addToast("error", "Nom, prénom et email sont requis."); return; }
-      const fullName = `${addCollab.lastName} ${addCollab.firstName}`.trim();
+      const fullName = `${addCollab.firstName} ${addCollab.lastName}`.trim();
       await apiPost("/api/partner/collaborators", token, { fullName, email: addCollab.email, phone: addCollab.phone });
       setAddCollab({ firstName: "", lastName: "", email: "", phone: "" });
       await loadCollabs(); addToast("success", "Collaborateur ajouté.");
@@ -659,7 +659,7 @@ export default function PartnerDashboard() {
           {["EMAIL", "SMS"].map((m) => (
             <label key={m} className="checkbox" style={{ marginTop: 0 }}>
               <input type="radio" name="twoFactorMethod" checked={twoFactorMethod === m} onChange={() => setTwoFactorMethod(m)} disabled={!twoFactorEnabled} />
-              {m === "EMAIL" ? "⭕ Email" : "⭕ SMS"}
+              {m === "EMAIL" ? " Email" : " SMS"}
             </label>
           ))}
         </div>
@@ -700,8 +700,13 @@ export default function PartnerDashboard() {
         {/* ── NAV TABS ─────────────────────────────────────────────────────────── */}
         <div className="card" style={{ marginBottom: 14 }}>
           {isPrincipal && account && (
-            <p className="muted" style={{ marginBottom: 10 }}>
-              Statut: <b>{account.status}</b> • Responsable: <b>{account.principalName || "-"}</b>
+            <p className="muted" style={{ marginBottom: 10, display: "flex", gap: 18, flexWrap: "wrap", alignItems: "center" }}>
+              <span>
+                <b>Responsable principale:</b> {account.principalName || "-"}
+              </span>
+              <span>
+                <b>💰 Solde:</b> {balance ? `${balance.prepaidBalance} TND` : "-"}
+              </span>
             </p>
           )}
           {isCollab && limited && (
@@ -850,8 +855,8 @@ export default function PartnerDashboard() {
           <div className="grid" style={{ gridTemplateColumns: "1fr 1fr", gap: 14 }}>
             <div className="card">
               <h3>Ajouter un agent</h3>
-              <Input label="Nom *" value={addCollab.lastName}  onChange={(e) => setAddCollab({ ...addCollab, lastName:  e.target.value })} />
               <Input label="Prénom *" value={addCollab.firstName} onChange={(e) => setAddCollab({ ...addCollab, firstName: e.target.value })} />
+              <Input label="Nom *" value={addCollab.lastName}  onChange={(e) => setAddCollab({ ...addCollab, lastName:  e.target.value })} />
               <Input label="Email *" type="email" value={addCollab.email} onChange={(e) => setAddCollab({ ...addCollab, email: e.target.value })} />
               <Input label="Téléphone" value={addCollab.phone} onChange={(e) => setAddCollab({ ...addCollab, phone: e.target.value })} />
               <div style={{ marginTop: 12, display: "flex", justifyContent: "flex-end" }}>

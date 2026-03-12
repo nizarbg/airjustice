@@ -102,11 +102,12 @@
             <scope>provided</scope>
         </dependency>
 
-        <!-- HTTP client for OpenAI API calls -->
+
+        <!-- Tesseract OCR for image/scanned-PDF text extraction (on-premise, GDPR/DSG compliant) -->
         <dependency>
-            <groupId>com.squareup.okhttp3</groupId>
-            <artifactId>okhttp</artifactId>
-            <version>4.12.0</version>
+            <groupId>net.sourceforge.tess4j</groupId>
+            <artifactId>tess4j</artifactId>
+            <version>5.11.0</version>
         </dependency>
     </dependencies>
 

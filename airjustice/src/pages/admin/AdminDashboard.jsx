@@ -266,27 +266,6 @@ export default function AdminDashboard() {
                 </div>
 
                 <div>
-                  <h4 style={{ marginBottom: 10 }}>Valider / corriger les informations administratives</h4>
-                  <div className="grid" style={{ gridTemplateColumns: "1fr 1fr 1fr", gap: 14 }}>
-                    <Input
-                      label="Registre de commerce"
-                      value={verifyForm.rcNumber}
-                      onChange={(e) => setVerifyForm((prev) => ({ ...prev, rcNumber: e.target.value }))}
-                    />
-                    <Input
-                      label="Matricule fiscale"
-                      value={verifyForm.fiscalNumber}
-                      onChange={(e) => setVerifyForm((prev) => ({ ...prev, fiscalNumber: e.target.value }))}
-                    />
-                    <Input
-                      label="Code IATA"
-                      value={verifyForm.iataCode}
-                      onChange={(e) => setVerifyForm((prev) => ({ ...prev, iataCode: e.target.value }))}
-                    />
-                  </div>
-                </div>
-
-                <div>
                   <h4>Documents reçus</h4>
                   {details.documents?.length ? (
                     <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
