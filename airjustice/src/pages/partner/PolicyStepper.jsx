@@ -263,14 +263,31 @@ export default function PolicyStepper({ token, onCreated }) {
           </p>
 
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 12 }}>
-            <a
-              className="btn btn-primary"
-              href={`${API}/api/partner/policies/${success.policyId}/pdf`}
-              target="_blank"
-              rel="noreferrer"
+            <Button
+              variant="primary"
+              onClick={async () => {
+                try {
+                  const res = await fetch(
+                    `${API}/api/partner/policies/${success.policyId}/pdf`,
+                    { headers: { Authorization: `Bearer ${token}` } }
+                  );
+                  if (!res.ok) throw new Error("Erreur téléchargement");
+                  const blob = await res.blob();
+                  const url = window.URL.createObjectURL(blob);
+                  const a = document.createElement("a");
+                  a.href = url;
+                  a.download = `policy-${success.policyId}.pdf`;
+                  document.body.appendChild(a);
+                  a.click();
+                  a.remove();
+                  window.URL.revokeObjectURL(url);
+                } catch (e) {
+                  alert("Impossible de télécharger le PDF : " + e.message);
+                }
+              }}
             >
               Télécharger PDF
-            </a>
+            </Button>
             <Button variant="secondary" onClick={resetAll}>
               Créer une autre police
             </Button>

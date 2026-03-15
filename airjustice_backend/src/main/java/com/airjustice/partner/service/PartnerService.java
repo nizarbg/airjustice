@@ -54,9 +54,7 @@ public class PartnerService {
         acc.setPreferredLanguage(req.language());
         acc.setContactEmail(req.email());
         acc.setContactPhone(req.phone());
-        acc.setStatus(PartnerStatus.PENDING);
-
-        // read-only fields will be filled in Step 2 verification (admin flow)
+        acc.setStatus(PartnerStatus.SUBMITTED);
         accountRepo.save(acc);
 
         var principal = new PartnerUser();
@@ -86,12 +84,24 @@ public class PartnerService {
             throw new RuntimeException("Email ou mot de passe incorrect.");
 
         PartnerStatus status = user.getAccount().getStatus();
-        if (status == PartnerStatus.PENDING) {
-            throw new RuntimeException("Votre compte est en attente de validation par l’administrateur.");
-        }
         if (status == PartnerStatus.REJECTED) {
-            throw new RuntimeException("Votre demande a été refusée par l’administrateur.");
+            throw new RuntimeException("Votre demande a été refusée par l'administrateur.");
         }
+        if (!status.canLogin()) {
+            String msg = switch (status) {
+                case SUBMITTED              -> "Votre demande a été soumise et est en attente de traitement.";
+                case CONTACT_IN_PROGRESS    -> "AirJustice est en train de prendre contact avec vous.";
+                case DOCUMENTS_REQUESTED    -> "Des documents supplémentaires ont été demandés. Veuillez les transmettre.";
+                case DOCUMENTS_RECEIVED     -> "Vos documents ont été reçus et sont en attente de vérification.";
+                case VERIFICATION_IN_PROGRESS -> "Votre dossier est en cours de vérification.";
+                default                     -> "Votre compte n'est pas encore activé.";
+            };
+            throw new RuntimeException(msg);
+        }
+
+        // Track login
+        user.setLastLoginAt(Instant.now());
+        userRepo.save(user);
 
         // If 2FA enabled => return tempToken and send OTP
         if (user.isTwoFactorEnabled()) {
@@ -161,8 +171,13 @@ public class PartnerService {
                 u.getId(),
                 u.getFullName(),
                 u.getEmail(),
+                u.getPhone(),
                 u.getRole().name(),
-                u.getTwoFactorMethod() == null ? "EMAIL" : u.getTwoFactorMethod().name()
+                u.getTwoFactorMethod() == null ? "EMAIL" : u.getTwoFactorMethod().name(),
+                u.isTwoFactorEnabled(),
+                u.isNotifyEmail(),
+                u.isNotifySms(),
+                u.isNotifySystem()
         );
     }
 
@@ -189,6 +204,31 @@ public class PartnerService {
 
         u.setTwoFactorMethod(m);
         userRepo.save(u);
+    }
+
+    @Transactional
+    public void updateNotificationPreferences(String email, boolean notifyEmail, boolean notifySms, boolean notifySystem) {
+        var u = currentUser(email);
+        u.setNotifyEmail(notifyEmail);
+        u.setNotifySms(notifySms);
+        u.setNotifySystem(notifySystem);
+        userRepo.save(u);
+    }
+
+    @Transactional
+    public MeDto updateMyProfile(String email, String phone, String newEmail) {
+        var u = currentUser(email);
+        if (phone != null) u.setPhone(phone.trim());
+        if (newEmail != null && !newEmail.isBlank()) {
+            String lower = newEmail.trim().toLowerCase();
+            if (!lower.equals(u.getEmail())) {
+                if (userRepo.findByEmailIgnoreCase(lower).isPresent())
+                    throw new RuntimeException("Cet email est déjà utilisé.");
+                u.setEmail(lower);
+            }
+        }
+        userRepo.save(u);
+        return getMe(u.getEmail());
     }
 
     // Principal resets collaborator password
@@ -219,7 +259,7 @@ public class PartnerService {
     }
 
     private PartnerUserDto toDto(PartnerUser u) {
-        return new PartnerUserDto(u.getId(), u.getAccount().getId(), u.getFullName(), u.getEmail(), u.getRole().name());
+        return new PartnerUserDto(u.getId(), u.getAccount().getId(), u.getFullName(), u.getEmail(), u.getRole().name(), u.getLastLoginAt());
     }
 
     private PartnerUser currentUser(String email) {
@@ -415,8 +455,9 @@ public class PartnerService {
 
     @Transactional
     protected void activateIfVerified(PartnerUser user) {
-        if (user.getAccount().getStatus() == PartnerStatus.VERIFIED) {
-            user.getAccount().setStatus(PartnerStatus.ACTIVE);
+        PartnerStatus s = user.getAccount().getStatus();
+        if (s == PartnerStatus.VERIFIED || s == PartnerStatus.VERIFICATION_IN_PROGRESS) {
+            user.getAccount().setStatus(PartnerStatus.APPROVED);
             accountRepo.save(user.getAccount());
         }
     }
@@ -440,8 +481,7 @@ public class PartnerService {
         acc.setRcNumber(rcNumber == null || rcNumber.isBlank() ? null : rcNumber.trim());
         acc.setFiscalNumber(fiscalNumber == null || fiscalNumber.isBlank() ? null : fiscalNumber.trim());
         acc.setIataCode(iataCode == null || iataCode.isBlank() ? null : iataCode.trim());
-        acc.setStatus(PartnerStatus.PENDING);
-        accountRepo.save(acc);
+        acc.setStatus(PartnerStatus.DOCUMENTS_RECEIVED);        accountRepo.save(acc);
 
         var doc = new PartnerDocument();
         doc.setAccount(acc);

@@ -4,31 +4,55 @@ import Button from "../../ui/Button";
 import Input from "../../ui/Input";
 
 const API = "http://localhost:8080";
-const STATUS_OPTIONS = ["ALL", "PENDING", "VERIFIED", "ACTIVE"];
+
+const STATUS_LABELS = {
+  SUBMITTED: "Soumis",
+  CONTACT_IN_PROGRESS: "Prise de contact",
+  DOCUMENTS_REQUESTED: "Documents demandés",
+  DOCUMENTS_RECEIVED: "Documents reçus",
+  VERIFICATION_IN_PROGRESS: "Vérification en cours",
+  APPROVED: "Approuvé",
+  REJECTED: "Rejeté",
+  PENDING: "En attente (legacy)",
+  VERIFIED: "Vérifié (legacy)",
+  ACTIVE: "Actif (legacy)",
+  ALL: "Tous",
+};
+
+const STATUS_NEXT = {
+  SUBMITTED: "CONTACT_IN_PROGRESS",
+  CONTACT_IN_PROGRESS: "DOCUMENTS_REQUESTED",
+  DOCUMENTS_REQUESTED: "DOCUMENTS_RECEIVED",
+  DOCUMENTS_RECEIVED: "VERIFICATION_IN_PROGRESS",
+  VERIFICATION_IN_PROGRESS: "APPROVED",
+};
 
 async function api(path, token, options = {}) {
-  const res = await fetch(API + path, {
-    ...options,
-    headers: {
-      "Content-Type": options.body instanceof FormData ? undefined : "application/json",
-      Authorization: `Bearer ${token}`,
-      ...(options.headers || {}),
-    },
-  });
+  const headers = { Authorization: `Bearer ${token}` };
+  if (!(options.body instanceof FormData)) headers["Content-Type"] = "application/json";
+  const res = await fetch(API + path, { ...options, headers: { ...headers, ...(options.headers || {}) } });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data.message || "Erreur admin.");
   return data;
 }
 
 function Badge({ status }) {
-  const styles = {
-    PENDING: { background: "rgba(245, 158, 11, .15)", border: "1px solid rgba(245, 158, 11, .35)" },
-    VERIFIED: { background: "rgba(59, 130, 246, .15)", border: "1px solid rgba(59, 130, 246, .35)" },
-    ACTIVE: { background: "rgba(34, 197, 94, .15)", border: "1px solid rgba(34, 197, 94, .35)" },
+  const colors = {
+    SUBMITTED:               { bg: "rgba(245,158,11,.15)",  border: "rgba(245,158,11,.35)" },
+    CONTACT_IN_PROGRESS:     { bg: "rgba(168,85,247,.15)",  border: "rgba(168,85,247,.35)" },
+    DOCUMENTS_REQUESTED:     { bg: "rgba(234,179,8,.15)",   border: "rgba(234,179,8,.35)" },
+    DOCUMENTS_RECEIVED:      { bg: "rgba(59,130,246,.15)",  border: "rgba(59,130,246,.35)" },
+    VERIFICATION_IN_PROGRESS:{ bg: "rgba(14,165,233,.15)",  border: "rgba(14,165,233,.35)" },
+    APPROVED:                { bg: "rgba(34,197,94,.15)",   border: "rgba(34,197,94,.35)" },
+    REJECTED:                { bg: "rgba(220,38,38,.15)",   border: "rgba(220,38,38,.35)" },
+    PENDING:                 { bg: "rgba(245,158,11,.15)",  border: "rgba(245,158,11,.35)" },
+    VERIFIED:                { bg: "rgba(59,130,246,.15)",  border: "rgba(59,130,246,.35)" },
+    ACTIVE:                  { bg: "rgba(34,197,94,.15)",   border: "rgba(34,197,94,.35)" },
   };
+  const c = colors[status] || { bg: "rgba(255,255,255,.06)", border: "rgba(255,255,255,.12)" };
   return (
-    <span style={{ padding: "4px 10px", borderRadius: 999, fontSize: 12, fontWeight: 700, ...styles[status] }}>
-      {status}
+    <span style={{ padding: "4px 10px", borderRadius: 999, fontSize: 11, fontWeight: 700, background: c.bg, border: `1px solid ${c.border}`, whiteSpace: "nowrap" }}>
+      {STATUS_LABELS[status] || status}
     </span>
   );
 }
@@ -51,14 +75,9 @@ export default function AdminDashboard() {
     try {
       const data = await api(`/api/admin/partners/applications?status=${encodeURIComponent(nextStatus)}`, adminToken);
       setItems(Array.isArray(data) ? data : []);
-      if (!selectedId && data?.[0]?.id) {
-        setSelectedId(data[0].id);
-      }
-    } catch (error) {
-      setErr(error.message);
-    } finally {
-      setLoading(false);
-    }
+      if (!selectedId && data?.[0]?.id) setSelectedId(data[0].id);
+    } catch (error) { setErr(error.message); }
+    finally { setLoading(false); }
   };
 
   const loadDetails = async (id) => {
@@ -68,84 +87,66 @@ export default function AdminDashboard() {
     try {
       const data = await api(`/api/admin/partners/applications/${id}`, adminToken);
       setDetails(data);
-      setVerifyForm({
-        rcNumber: data.rcNumber || "",
-        fiscalNumber: data.fiscalNumber || "",
-        iataCode: data.iataCode || "",
-      });
-    } catch (error) {
-      setErr(error.message);
-    } finally {
-      setDetailsLoading(false);
-    }
+      setVerifyForm({ rcNumber: data.rcNumber || "", fiscalNumber: data.fiscalNumber || "", iataCode: data.iataCode || "" });
+    } catch (error) { setErr(error.message); }
+    finally { setDetailsLoading(false); }
   };
 
-  useEffect(() => {
-    loadApplications();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [status]);
+  useEffect(() => { loadApplications(); }, [status]); // eslint-disable-line
+  useEffect(() => { if (selectedId) loadDetails(selectedId); }, [selectedId]); // eslint-disable-line
 
-  useEffect(() => {
-    if (selectedId) loadDetails(selectedId);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedId]);
+  const groupedStats = useMemo(() => items.reduce((acc, i) => { acc[i.status] = (acc[i.status] || 0) + 1; return acc; }, {}), [items]);
 
-  const groupedStats = useMemo(() => {
-    return items.reduce((acc, item) => {
-      acc[item.status] = (acc[item.status] || 0) + 1;
-      return acc;
-    }, {});
-  }, [items]);
+  const setApplicationStatus = async (newStatus) => {
+    if (!selectedId) return;
+    setErr(""); setSuccess("");
+    try {
+      const data = await api(`/api/admin/partners/applications/${selectedId}/status`, adminToken, {
+        method: "PUT", body: JSON.stringify({ status: newStatus }),
+      });
+      setDetails(data);
+      setSuccess(`Statut mis à jour: ${STATUS_LABELS[newStatus] || newStatus}`);
+      await loadApplications();
+    } catch (error) { setErr(error.message); }
+  };
 
   const verifyAccount = async () => {
     if (!selectedId) return;
-    setErr("");
-    setSuccess("");
+    setErr(""); setSuccess("");
     try {
       const data = await api(`/api/admin/partners/applications/${selectedId}/verify`, adminToken, {
-        method: "PUT",
-        body: JSON.stringify(verifyForm),
+        method: "PUT", body: JSON.stringify(verifyForm),
       });
       setDetails(data);
-      setSuccess("Dossier vérifié. Le partenaire peut maintenant finaliser son activation au login.");
+      setSuccess("Dossier vérifié — statut: Vérification en cours.");
       await loadApplications();
-    } catch (error) {
-      setErr(error.message);
-    }
+    } catch (error) { setErr(error.message); }
   };
 
   const approveAccount = async () => {
     if (!selectedId) return;
-    setErr("");
-    setSuccess("");
+    setErr(""); setSuccess("");
     try {
-      const data = await api(`/api/admin/partners/applications/${selectedId}/approve`, adminToken, {
-        method: "PUT",
-      });
+      const data = await api(`/api/admin/partners/applications/${selectedId}/approve`, adminToken, { method: "PUT" });
       setDetails(data);
-      setSuccess("Compte activé.");
+      setSuccess("Compte approuvé. Le partenaire a maintenant accès à la plateforme.");
       await loadApplications();
-    } catch (error) {
-      setErr(error.message);
-    }
+    } catch (error) { setErr(error.message); }
   };
 
   const rejectAccount = async () => {
     if (!selectedId) return;
-    const confirmed = window.confirm("Rejeter ce dossier supprimera le compte partenaire. Continuer ?");
-    if (!confirmed) return;
-    setErr("");
-    setSuccess("");
+    if (!window.confirm("Rejeter ce dossier supprimera le compte partenaire. Continuer ?")) return;
+    setErr(""); setSuccess("");
     try {
       await api(`/api/admin/partners/applications/${selectedId}`, adminToken, { method: "DELETE" });
       setSuccess("Dossier rejeté et compte supprimé.");
-      setSelectedId(null);
-      setDetails(null);
+      setSelectedId(null); setDetails(null);
       await loadApplications();
-    } catch (error) {
-      setErr(error.message);
-    }
+    } catch (error) { setErr(error.message); }
   };
+
+  const nextStatus = details ? STATUS_NEXT[details.status] : null;
 
   return (
     <div className="page">
@@ -160,21 +161,32 @@ export default function AdminDashboard() {
       <main className="container">
         <div className="card" style={{ marginBottom: 14 }}>
           <h2>Validation des inscriptions agences</h2>
-          <p className="muted">Vous gérez ici les demandes reçues depuis `PartnerApply`, les documents administratifs et l’activation finale du compte.</p>
-          <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 12 }}>
-            {STATUS_OPTIONS.map((option) => (
-              <Button key={option} variant={status === option ? "primary" : "secondary"} onClick={() => setStatus(option)}>
-                {option}
+          <p className="muted">Gérez le processus d'inscription complet : soumission → contact → documents → vérification → activation.</p>
+
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 14, marginBottom: 14, alignItems: "center" }}>
+            {["SUBMITTED", "CONTACT_IN_PROGRESS", "DOCUMENTS_REQUESTED", "DOCUMENTS_RECEIVED", "VERIFICATION_IN_PROGRESS", "APPROVED"].map((s, idx) => (
+              <span key={s} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <Badge status={s} />
+                {idx < 5 && <span style={{ color: "rgba(255,255,255,.3)" }}>→</span>}
+              </span>
+            ))}
+          </div>
+
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            {["ALL", "SUBMITTED", "CONTACT_IN_PROGRESS", "DOCUMENTS_REQUESTED", "DOCUMENTS_RECEIVED", "VERIFICATION_IN_PROGRESS", "APPROVED", "REJECTED"].map((option) => (
+              <Button key={option} variant={status === option ? "primary" : "secondary"} onClick={() => setStatus(option)} style={{ fontSize: 12, padding: "6px 12px" }}>
+                {STATUS_LABELS[option] || option}
+                {option !== "ALL" && groupedStats[option] ? ` (${groupedStats[option]})` : ""}
               </Button>
             ))}
           </div>
         </div>
 
-        <div className="grid" style={{ gridTemplateColumns: "340px 1fr", gap: 14 }}>
+        <div className="grid" style={{ gridTemplateColumns: "360px 1fr", gap: 14 }}>
           <div className="card">
             <h3>Dossiers</h3>
             <div className="muted small" style={{ marginBottom: 10 }}>
-              PENDING: {groupedStats.PENDING || 0} • VERIFIED: {groupedStats.VERIFIED || 0} • ACTIVE: {groupedStats.ACTIVE || 0}
+              {Object.entries(groupedStats).map(([k, v]) => `${STATUS_LABELS[k] || k}: ${v}`).join(" • ") || "Aucun"}
             </div>
             {loading ? (
               <p className="muted">Chargement...</p>
@@ -183,19 +195,8 @@ export default function AdminDashboard() {
             ) : (
               <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                 {items.map((item) => (
-                  <button
-                    key={item.id}
-                    type="button"
-                    className="card"
-                    onClick={() => setSelectedId(item.id)}
-                    style={{
-                      textAlign: "left",
-                      padding: 14,
-                      border: selectedId === item.id ? "1px solid rgba(255,255,255,.35)" : "1px solid rgba(255,255,255,.08)",
-                      background: "rgba(255,255,255,.03)",
-                      cursor: "pointer",
-                    }}
-                  >
+                  <button key={item.id} type="button" className="card" onClick={() => setSelectedId(item.id)}
+                    style={{ textAlign: "left", padding: 14, cursor: "pointer", border: selectedId === item.id ? "1px solid rgba(255,255,255,.35)" : "1px solid rgba(255,255,255,.08)", background: "rgba(255,255,255,.03)" }}>
                     <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "center" }}>
                       <b>{item.agencyName || "Agence"}</b>
                       <Badge status={item.status} />
@@ -265,6 +266,18 @@ export default function AdminDashboard() {
                   </div>
                 </div>
 
+                <div className="card" style={{ padding: 14 }}>
+                  <h4 style={{ marginBottom: 10 }}>Valider / corriger les informations administratives</h4>
+                  <div className="grid" style={{ gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
+                    <Input label="Registre de commerce" value={verifyForm.rcNumber} onChange={(e) => setVerifyForm({ ...verifyForm, rcNumber: e.target.value })} />
+                    <Input label="Matricule fiscale" value={verifyForm.fiscalNumber} onChange={(e) => setVerifyForm({ ...verifyForm, fiscalNumber: e.target.value })} />
+                    <Input label="Code IATA" value={verifyForm.iataCode} onChange={(e) => setVerifyForm({ ...verifyForm, iataCode: e.target.value })} />
+                  </div>
+                  <div style={{ marginTop: 10, display: "flex", justifyContent: "flex-end" }}>
+                    <Button variant="secondary" onClick={verifyAccount}>Sauvegarder et vérifier</Button>
+                  </div>
+                </div>
+
                 <div>
                   <h4>Documents reçus</h4>
                   {details.documents?.length ? (
@@ -275,14 +288,7 @@ export default function AdminDashboard() {
                             <b>{doc.filename}</b>
                             <div className="muted small">{doc.type} • {new Date(doc.uploadedAt).toLocaleString()}</div>
                           </div>
-                          <a
-                            className="btn btn-secondary"
-                            href={`${API}/api/admin/partners/documents/${doc.id}/download`}
-                            target="_blank"
-                            rel="noreferrer"
-                          >
-                            Télécharger
-                          </a>
+                          <a className="btn btn-secondary" href={`${API}/api/admin/partners/documents/${doc.id}/download`} target="_blank" rel="noreferrer">Télécharger</a>
                         </div>
                       ))}
                     </div>
@@ -291,10 +297,31 @@ export default function AdminDashboard() {
                   )}
                 </div>
 
-                <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "flex-end" }}>
-                  <Button variant="secondary" onClick={verifyAccount}>Vérifier le dossier</Button>
-                  <Button onClick={approveAccount}>Activer le compte</Button>
-                  <Button variant="ghost" onClick={rejectAccount}>Rejeter et supprimer</Button>
+                <div className="card" style={{ padding: 14, border: "1px solid rgba(255,255,255,.12)" }}>
+                  <h4 style={{ marginBottom: 10 }}>Actions sur le dossier</h4>
+                  <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                    {nextStatus && (
+                      <Button onClick={() => setApplicationStatus(nextStatus)}>
+                        ➡️ Passer à : {STATUS_LABELS[nextStatus] || nextStatus}
+                      </Button>
+                    )}
+                    {details.status !== "APPROVED" && details.status !== "REJECTED" && (
+                      <Button onClick={approveAccount}>✅ Approuver le compte</Button>
+                    )}
+                    {details.status !== "REJECTED" && details.status !== "APPROVED" && (
+                      <Button variant="ghost" onClick={rejectAccount}>❌ Rejeter et supprimer</Button>
+                    )}
+                  </div>
+                  <hr style={{ borderColor: "rgba(255,255,255,.08)", margin: "14px 0" }} />
+                  <div className="muted small" style={{ marginBottom: 8 }}>Forcer un statut manuellement :</div>
+                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                    {["SUBMITTED", "CONTACT_IN_PROGRESS", "DOCUMENTS_REQUESTED", "DOCUMENTS_RECEIVED", "VERIFICATION_IN_PROGRESS", "APPROVED"].map((s) => (
+                      <Button key={s} variant={details.status === s ? "primary" : "secondary"} style={{ fontSize: 11, padding: "4px 10px" }}
+                        onClick={() => setApplicationStatus(s)} disabled={details.status === s}>
+                        {STATUS_LABELS[s]}
+                      </Button>
+                    ))}
+                  </div>
                 </div>
               </div>
             ) : (

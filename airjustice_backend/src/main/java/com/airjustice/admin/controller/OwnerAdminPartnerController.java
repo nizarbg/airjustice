@@ -52,6 +52,15 @@ public class OwnerAdminPartnerController {
         return ResponseEntity.ok(java.util.Map.of("message", "Dossier rejeté et compte supprimé."));
     }
 
+    @PutMapping("/applications/{id}/status")
+    public OwnerAdminService.AdminPartnerApplicationDetailsDto setStatus(
+            @PathVariable Long id,
+            @RequestBody java.util.Map<String, String> body
+    ) {
+        String newStatus = body.get("status");
+        return service.setApplicationStatus(id, newStatus);
+    }
+
     @GetMapping("/documents/{documentId}/download")
     public ResponseEntity<byte[]> download(@PathVariable Long documentId) {
         PartnerDocument doc = documentRepo.findById(documentId)

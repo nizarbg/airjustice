@@ -32,4 +32,20 @@ public class PartnerMeController {
         service.setMy2faMethod(auth.getName(), req.twoFactorMethod());
         return Map.of("twoFactorMethod", req.twoFactorMethod().toUpperCase());
     }
+
+    @PutMapping("/notifications")
+    public Map<String, Object> updateNotifications(Authentication auth, @RequestBody Map<String, Object> body) {
+        boolean notifyEmail  = Boolean.TRUE.equals(body.get("notifyEmail"));
+        boolean notifySms    = Boolean.TRUE.equals(body.get("notifySms"));
+        boolean notifySystem = Boolean.TRUE.equals(body.get("notifySystem"));
+        service.updateNotificationPreferences(auth.getName(), notifyEmail, notifySms, notifySystem);
+        return Map.of("notifyEmail", notifyEmail, "notifySms", notifySms, "notifySystem", notifySystem);
+    }
+
+    @PutMapping("/profile")
+    public MeDto updateProfile(Authentication auth, @RequestBody Map<String, Object> body) {
+        String phone = body.get("phone") != null ? body.get("phone").toString() : null;
+        String email = body.get("email") != null ? body.get("email").toString() : null;
+        return service.updateMyProfile(auth.getName(), phone, email);
+    }
 }

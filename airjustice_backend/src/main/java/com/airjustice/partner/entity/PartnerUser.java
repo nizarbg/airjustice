@@ -38,4 +38,12 @@ public class PartnerUser {
 
     @Enumerated(EnumType.STRING)
     private TwoFactorMethod twoFactorMethod = TwoFactorMethod.EMAIL;
+
+    // Notification preferences
+    private boolean notifyEmail = true;
+    private boolean notifySms = false;
+    private boolean notifySystem = true;
+
+    // Login tracking
+    private Instant lastLoginAt;
 }

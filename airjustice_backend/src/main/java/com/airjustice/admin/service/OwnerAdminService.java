@@ -112,7 +112,7 @@ public class OwnerAdminService {
         account.setRcNumber(trimToNull(req.rcNumber()));
         account.setFiscalNumber(trimToNull(req.fiscalNumber()));
         account.setIataCode(trimToNull(req.iataCode()));
-        account.setStatus(PartnerStatus.VERIFIED);
+        account.setStatus(PartnerStatus.VERIFICATION_IN_PROGRESS);
         accountRepo.save(account);
         return getApplication(accountId);
     }
@@ -121,7 +121,22 @@ public class OwnerAdminService {
     public AdminPartnerApplicationDetailsDto approveApplication(Long accountId) {
         PartnerAccount account = accountRepo.findById(accountId)
                 .orElseThrow(() -> new RuntimeException("Dossier partenaire introuvable."));
-        account.setStatus(PartnerStatus.ACTIVE);
+        account.setStatus(PartnerStatus.APPROVED);
+        accountRepo.save(account);
+        return getApplication(accountId);
+    }
+
+    @Transactional
+    public AdminPartnerApplicationDetailsDto setApplicationStatus(Long accountId, String newStatus) {
+        PartnerAccount account = accountRepo.findById(accountId)
+                .orElseThrow(() -> new RuntimeException("Dossier partenaire introuvable."));
+        PartnerStatus target;
+        try {
+            target = PartnerStatus.valueOf(newStatus.toUpperCase());
+        } catch (IllegalArgumentException ex) {
+            throw new RuntimeException("Statut invalide: " + newStatus);
+        }
+        account.setStatus(target);
         accountRepo.save(account);
         return getApplication(accountId);
     }
