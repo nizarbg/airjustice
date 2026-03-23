@@ -926,28 +926,6 @@ export default function PartnerDashboard() {
           <h3>Compte</h3>
 
           <label className="field">
-            <span className="label">Langue de l'interface</span>
-            <select
-              className="input"
-              value={interfaceLang}
-              onChange={(e) => {
-                setInterfaceLang(e.target.value);
-                setLang(e.target.value);
-              }}
-            >
-              <option value="fr">🇫🇷 Français</option>
-              <option value="ar">🇹🇳 العربية</option>
-            </select>
-          </label>
-
-          <hr
-            style={{
-              borderColor: "rgba(255,255,255,.08)",
-              margin: "14px 0",
-            }}
-          />
-
-          <label className="field">
             <span className="label">Mot de passe actuel</span>
             <div style={{ position: "relative" }}>
               <input

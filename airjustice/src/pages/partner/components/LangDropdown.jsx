@@ -1,37 +1,54 @@
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 
 export default function LangDropdown({ lang, setLang }) {
   const [open, setOpen] = useState(false);
-  const ref = useRef(null);
+  const [dropPos, setDropPos] = useState({ top: 0, left: 0 });
+  const btnRef = useRef(null);
 
   useEffect(() => {
     const handler = (e) => {
-      if (ref.current && !ref.current.contains(e.target)) setOpen(false);
+      if (btnRef.current && !btnRef.current.closest("[data-lang-dropdown]")?.contains(e.target)) {
+        setOpen(false);
+      }
     };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
+  const handleOpen = () => {
+    if (btnRef.current) {
+      const rect = btnRef.current.getBoundingClientRect();
+      setDropPos({
+        top: rect.bottom + 6,
+        left: rect.left,
+      });
+    }
+    setOpen((o) => !o);
+  };
+
   return (
-    <div ref={ref} style={{ position: "relative" }}>
+    <div data-lang-dropdown="" style={{ position: "relative" }}>
       <button
+        ref={btnRef}
         className="btn btn-ghost"
         style={{ fontSize: 18, padding: "4px 8px" }}
-        onClick={() => setOpen((o) => !o)}
+        onClick={handleOpen}
         title="Langue"
         aria-label="Changer la langue"
       >
         🌐
       </button>
 
-      {open && (
+      {open && createPortal(
         <div
+          data-lang-dropdown=""
           className="card"
           style={{
-            position: "absolute",
-            right: 0,
-            top: "calc(100% + 6px)",
-            zIndex: 1000,
+            position: "fixed",
+            top: dropPos.top,
+            left: dropPos.left,
+            zIndex: 9999,
             minWidth: 130,
             padding: 6,
           }}
@@ -58,7 +75,8 @@ export default function LangDropdown({ lang, setLang }) {
               {label} {lang === code ? "✓" : ""}
             </button>
           ))}
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
