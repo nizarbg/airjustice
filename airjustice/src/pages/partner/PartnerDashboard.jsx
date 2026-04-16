@@ -20,6 +20,8 @@ import Toasts from "./components/Toasts";
 import Stepper from "./components/Stepper";
 import LangDropdown from "./components/LangDropdown";
 import KpiCard from "./components/KpiCard";
+import { useLanguage } from "../../context/LanguageContext";
+import PageLayout from "../../components/PageLayout";
 
 // ═════════════════════════════════════════════════════════════════════════════
 export default function PartnerDashboard() {
@@ -28,6 +30,17 @@ export default function PartnerDashboard() {
   const isCollab = user?.role === "PARTNER_COLLAB";
   const [lang, setLang] = useLang();
   const L = LABELS[lang] || LABELS.fr;
+  const { language, setLanguage } = useLanguage();
+
+  // Sync shared language context ↔ partner local lang
+  useEffect(() => {
+    const map = { fr: "FR", ar: "AR" };
+    if (map[lang] && map[lang] !== language) setLanguage(map[lang]);
+  }, [lang, language, setLanguage]);
+  useEffect(() => {
+    const map = { FR: "fr", AR: "ar", EN: "fr", DE: "fr" };
+    if (map[language] && map[language] !== lang) setLang(map[language]);
+  }, [language, lang, setLang]);
 
   // ── Tabs by role ────────────────────────────────────────────────────────────
   const tabs = useMemo(() => {
@@ -1182,42 +1195,43 @@ export default function PartnerDashboard() {
 
   // ════════════════════════════════════════════════════════════════════════════
   return (
-    <div className="page">
-      <Toasts toasts={toasts} onClose={closeToast} />
+    <PageLayout>
+      <div className="page">
+        <Toasts toasts={toasts} onClose={closeToast} />
 
-      <header className="nav">
-        <div className="brand">AirJustice Partner</div>
+        <div className="nav">
+          <div className="brand">AirJustice Partner</div>
 
-        <div
-          className="nav-actions"
-          style={{ display: "flex", alignItems: "center", gap: 10 }}
-        >
-          <button
-            className="btn btn-ghost"
-            style={{ fontSize: 18, padding: "4px 8px" }}
-            title="Notifications"
-            aria-label="Notifications"
+          <div
+            className="nav-actions"
+            style={{ display: "flex", alignItems: "center", gap: 10 }}
           >
-            🔔
-          </button>
+            <button
+              className="btn btn-ghost"
+              style={{ fontSize: 18, padding: "4px 8px" }}
+              title="Notifications"
+              aria-label="Notifications"
+            >
+              🔔
+            </button>
 
-          <LangDropdown
-            lang={lang}
-            setLang={(l) => {
-              setLang(l);
-              setInterfaceLang(l);
-            }}
-          />
+            <LangDropdown
+              lang={lang}
+              setLang={(l) => {
+                setLang(l);
+                setInterfaceLang(l);
+              }}
+            />
 
-          <span className="muted" style={{ fontWeight: 600 }}>
-            👤 {displayName}
-          </span>
+            <span className="muted" style={{ fontWeight: 600 }}>
+              👤 {displayName}
+            </span>
 
-          <Button variant="ghost" onClick={logout}>
-            {L.logout}
-          </Button>
+            <Button variant="ghost" onClick={logout}>
+              {L.logout}
+            </Button>
+          </div>
         </div>
-      </header>
 
       <main className="container">
         <div className="card" style={{ marginBottom: 14 }}>
@@ -1654,6 +1668,7 @@ export default function PartnerDashboard() {
 
         {tab === "security" && renderSettings()}
       </main>
-    </div>
+      </div>
+    </PageLayout>
   );
 }
