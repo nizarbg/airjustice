@@ -15,12 +15,18 @@ spring:
     console:
       enabled: true
       path: /h2
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 50MB
 
 app:
   jwt:
     secret: "CHANGE_ME_TO_A_LONG_RANDOM_SECRET_AT_LEAST_32_CHARS"
     expiryMinutes: 120
     otpExpiryMinutes: 5
+  upload:
+    maxFileSizeMb: 10
 
 airjustice:
   monitoring:

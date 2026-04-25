@@ -8,6 +8,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.util.List;
+
 @RestController
 @RequestMapping("/api/partner")
 @CrossOrigin(origins = "http://localhost:5173")
@@ -21,6 +23,26 @@ public class PartnerApplyController {
         service.apply(req);
         return ResponseEntity.ok().body(
                 java.util.Map.of("message", "Inscription reçue. Notre équipe vous contactera sous 24h.")
+        );
+    }
+
+    /**
+     * Upload registration documents (RNE, ID document, travel agency license).
+     * Called after /apply returns the accountId (via email lookup or returned in response).
+     */
+    @PostMapping(value = "/apply/documents", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<?> uploadDocuments(
+            @RequestPart("email") String email,
+            @RequestPart("files") List<MultipartFile> files,
+            @RequestPart(value = "documentTypes", required = false) String documentTypesStr
+    ) {
+        // Look up the account by email
+        List<String> docTypes = documentTypesStr != null
+                ? List.of(documentTypesStr.split(","))
+                : List.of();
+        service.uploadRegistrationDocumentsByEmail(email.trim().toLowerCase(), files, docTypes);
+        return ResponseEntity.ok().body(
+                java.util.Map.of("message", "Documents téléversés avec succès.")
         );
     }
 

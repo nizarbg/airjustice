@@ -6,6 +6,8 @@ import com.airjustice.partner.repo.*;
 import com.airjustice.security.JwtService;
 import io.jsonwebtoken.Claims;
 import jakarta.transaction.Transactional;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
@@ -14,46 +16,92 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 @Service
 public class PartnerService {
 
+    private static final Logger log = LoggerFactory.getLogger(PartnerService.class);
+    private static final Set<String> ALLOWED_EXTENSIONS = Set.of("pdf", "jpg", "jpeg", "png");
+    private static final Set<String> ALLOWED_MIME_TYPES = Set.of(
+            "application/pdf", "image/jpeg", "image/png"
+    );
+
     private final PartnerUserRepo userRepo;
     private final PartnerAccountRepo accountRepo;
     private final PartnerDocumentRepo docRepo;
+    private final RegistrationLogRepo logRepo;
     private final HashService hash;
     private final OtpService otpService;
     private final JwtService jwt;
     private final long otpExpiryMinutes;
+    private final long maxFileSize; // bytes
 
     public PartnerService(
             PartnerUserRepo userRepo,
             PartnerAccountRepo accountRepo,
             PartnerDocumentRepo docRepo,
+            RegistrationLogRepo logRepo,
             HashService hash,
             OtpService otpService,
             JwtService jwt,
-            @Value("${app.jwt.otpExpiryMinutes}") long otpExpiryMinutes
+            @Value("${app.jwt.otpExpiryMinutes}") long otpExpiryMinutes,
+            @Value("${app.upload.maxFileSizeMb:10}") long maxFileSizeMb
     ) {
         this.userRepo = userRepo;
         this.accountRepo = accountRepo;
         this.docRepo = docRepo;
+        this.logRepo = logRepo;
         this.hash = hash;
         this.otpService = otpService;
         this.jwt = jwt;
         this.otpExpiryMinutes = otpExpiryMinutes;
+        this.maxFileSize = maxFileSizeMb * 1024 * 1024;
     }
 
     // Step 1: partner apply -> creates account + principal user (status PENDING)
     @Transactional
     public void apply(PartnerApplyRequest req) {
+        // Validate unique admin email
+        if (userRepo.findByEmailIgnoreCase(req.email().trim().toLowerCase()).isPresent()) {
+            throw new RuntimeException("Cet email admin est déjà utilisé.");
+        }
+
+        // Validate unique contact email
+        if (req.contactEmail() != null && accountRepo.existsByContactEmailIgnoreCase(req.contactEmail().trim())) {
+            throw new RuntimeException("Cette adresse email de contact est déjà utilisée.");
+        }
+
+        // Validate consent
+        if (!req.consentAccepted()) {
+            throw new RuntimeException("Vous devez accepter la politique de confidentialité.");
+        }
+
         var acc = new PartnerAccount();
         acc.setAgencyName(req.agencyName());
-        acc.setCity(req.city());
         acc.setCountry(req.country());
+        acc.setAddress(req.address());
+        acc.setCity(req.city());
         acc.setPreferredLanguage(req.language());
-        acc.setContactEmail(req.email());
-        acc.setContactPhone(req.phone());
+
+        // Contact person
+        acc.setContactPersonName(req.contactPersonName());
+        acc.setContactEmail(req.contactEmail());
+        acc.setContactPhone(req.contactPhone());
+
+        // Legal data
+        acc.setTradeRegisterNumber(req.tradeRegisterNumber());
+        acc.setTaxIdentificationNumber(req.taxIdentificationNumber());
+
+        // Backward compat
+        acc.setRcNumber(req.tradeRegisterNumber());
+        acc.setFiscalNumber(req.taxIdentificationNumber());
+
+        // Consent
+        acc.setConsentStatus(true);
+        acc.setConsentTimestamp(Instant.now());
+        acc.setPrivacyPolicyVersion(req.privacyPolicyVersion() != null ? req.privacyPolicyVersion() : "1.0");
+
         acc.setStatus(PartnerStatus.SUBMITTED);
         accountRepo.save(acc);
 
@@ -68,6 +116,85 @@ public class PartnerService {
         principal.setUsername(generateUsername(req.managerName(), req.agencyName()));
 
         userRepo.save(principal);
+
+        // Log registration
+        var regLog = new RegistrationLog();
+        regLog.setEventType("registration_submitted");
+        regLog.setTimestamp(Instant.now());
+        regLog.setAgencyId(acc.getId());
+        regLog.setCompanyName(acc.getAgencyName());
+        regLog.setUserEmail(req.email());
+        logRepo.save(regLog);
+
+        log.info("Registration submitted: agency={}, email={}", acc.getAgencyName(), req.email());
+    }
+
+    /**
+     * Upload documents during registration (RNE, ID, license).
+     * Validates extension, MIME type, and file size.
+     */
+    @Transactional
+    public void uploadRegistrationDocuments(Long accountId, String uploaderEmail, List<MultipartFile> files, List<String> documentTypes) {
+        var acc = accountRepo.findById(accountId)
+                .orElseThrow(() -> new RuntimeException("Compte agence introuvable."));
+
+        for (int i = 0; i < files.size(); i++) {
+            MultipartFile file = files.get(i);
+            String docType = (documentTypes != null && i < documentTypes.size()) ? documentTypes.get(i) : "UNKNOWN";
+
+            var docLog = new RegistrationLog();
+            docLog.setEventType("document_uploaded");
+            docLog.setTimestamp(Instant.now());
+            docLog.setAgencyId(accountId);
+            docLog.setDocumentType(docType);
+            docLog.setFileName(file.getOriginalFilename());
+
+            try {
+                validateFile(file);
+
+                var doc = new PartnerDocument();
+                doc.setAccount(acc);
+                doc.setType(docType);
+                doc.setFilename(file.getOriginalFilename());
+                doc.setContentType(file.getContentType());
+                doc.setContent(file.getBytes());
+                docRepo.save(doc);
+
+                docLog.setUploadStatus("success");
+                log.info("Document uploaded: type={}, file={}, agency={}", docType, file.getOriginalFilename(), accountId);
+            } catch (Exception e) {
+                docLog.setUploadStatus("failed");
+                log.warn("Document upload failed: type={}, file={}, reason={}", docType, file.getOriginalFilename(), e.getMessage());
+                logRepo.save(docLog);
+                throw new RuntimeException("Échec du téléversement du document '" + file.getOriginalFilename() + "': " + e.getMessage());
+            }
+            logRepo.save(docLog);
+        }
+    }
+
+    private void validateFile(MultipartFile file) {
+        if (file.isEmpty()) throw new RuntimeException("Le fichier est vide.");
+        if (file.getSize() > maxFileSize) throw new RuntimeException("Taille du fichier supérieure à la limite autorisée.");
+
+        String originalName = file.getOriginalFilename();
+        if (originalName != null) {
+            String ext = originalName.substring(originalName.lastIndexOf('.') + 1).toLowerCase();
+            if (!ALLOWED_EXTENSIONS.contains(ext)) {
+                throw new RuntimeException("Extension non autorisée: " + ext + ". Formats acceptés: PDF, JPG, PNG.");
+            }
+        }
+
+        String mime = file.getContentType();
+        if (mime == null || !ALLOWED_MIME_TYPES.contains(mime.toLowerCase())) {
+            throw new RuntimeException("Type MIME non autorisé: " + mime);
+        }
+    }
+
+    @Transactional
+    public void uploadRegistrationDocumentsByEmail(String email, List<MultipartFile> files, List<String> documentTypes) {
+        var user = userRepo.findByEmailIgnoreCase(email)
+                .orElseThrow(() -> new RuntimeException("Compte introuvable pour cet email."));
+        uploadRegistrationDocuments(user.getAccount().getId(), email, files, documentTypes);
     }
 
     public PartnerAuthResponse login(PartnerLoginRequest req) {
@@ -450,7 +577,17 @@ public class PartnerService {
                 .toLowerCase()
                 .replaceAll("[^a-z0-9]+", ".");
         base = base.replaceAll("^\\.|\\.$", "");
-        return base.length() > 30 ? base.substring(0, 30) : base;
+        base = base.length() > 28 ? base.substring(0, 28) : base;
+
+        String candidate = base;
+        int attempt = 0;
+        while (userRepo.findByUsernameIgnoreCase(candidate).isPresent()) {
+            attempt++;
+            String suffix = String.valueOf(attempt);
+            int maxBase = 28 - suffix.length();
+            candidate = (base.length() > maxBase ? base.substring(0, maxBase) : base) + suffix;
+        }
+        return candidate;
     }
 
     @Transactional

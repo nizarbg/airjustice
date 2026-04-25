@@ -5,6 +5,7 @@ import lombok.Getter;
 import lombok.Setter;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 
 @Entity
 @Getter
@@ -17,25 +18,34 @@ public class PartnerAccount {
     @Enumerated(EnumType.STRING)
     private PartnerStatus status = PartnerStatus.PENDING;
 
-    // Agency info (editable by principal)
+    // Agency info
     private String agencyName;
     private String city;
-    private String country;
+    private String country;        // ISO 3166-1 alpha-2
+    private String address;
 
-    // Contact info (editable by principal)
+    // Contact person (may differ from admin user)
+    private String contactPersonName;
+    @Column(unique = true)
     private String contactEmail;
     private String contactPhone;
     private String preferredLanguage; // "fr" / "ar"
 
-    // Administrative verification fields (filled after initial apply, then displayed read-only in UIs)
+    // Company legal data
+    private String tradeRegisterNumber; // RNE / registre de commerce
+    private String taxIdentificationNumber;
+
+    // Legacy fields kept for backward compat
     private String rcNumber;
-
     private String fiscalNumber;
-
     private String iataCode;
+
+    // Privacy & consent
+    private boolean consentStatus;
+    private Instant consentTimestamp;
+    private String privacyPolicyVersion;
 
     // Balance + alerts
     private BigDecimal prepaidBalance = BigDecimal.ZERO;
-    private BigDecimal lowBalanceThreshold = new BigDecimal("50"); // default
-
+    private BigDecimal lowBalanceThreshold = new BigDecimal("50");
 }

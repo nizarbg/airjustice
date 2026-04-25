@@ -1,14 +1,15 @@
 package com.airjustice.config;
 
 import jakarta.servlet.http.HttpServletRequest;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
-import org.springframework.web.bind.MissingServletRequestPartException;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
+import org.springframework.web.multipart.support.MissingServletRequestPartException;
 
 import java.time.Instant;
 import java.util.LinkedHashMap;
@@ -45,6 +46,22 @@ public class ApiExceptionHandler {
     public ResponseEntity<Map<String, Object>> handleMaxSize(MaxUploadSizeExceededException ex, HttpServletRequest req) {
         String message = "Fichier trop volumineux (limite depassee).";
         return build(HttpStatus.PAYLOAD_TOO_LARGE, message, req, List.of(message));
+    }
+
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<Map<String, Object>> handleDataIntegrity(DataIntegrityViolationException ex, HttpServletRequest req) {
+        String raw = ex.getMostSpecificCause().getMessage();
+        String message;
+        if (raw != null && raw.toLowerCase().contains("email")) {
+            message = "Cette adresse email est déjà utilisée.";
+        } else if (raw != null && raw.toLowerCase().contains("username")) {
+            message = "Un compte avec ce nom d'utilisateur existe déjà. Veuillez modifier le nom du responsable ou de l'agence.";
+        } else if (raw != null && (raw.toLowerCase().contains("unique") || raw.toLowerCase().contains("duplicate"))) {
+            message = "Un compte avec ces informations existe déjà.";
+        } else {
+            message = "Violation de contrainte de données. Vérifiez les informations saisies.";
+        }
+        return build(HttpStatus.CONFLICT, message, req, List.of(message));
     }
 
     @ExceptionHandler(RuntimeException.class)
@@ -84,4 +101,3 @@ public class ApiExceptionHandler {
         return ResponseEntity.status(status).body(body);
     }
 }
-

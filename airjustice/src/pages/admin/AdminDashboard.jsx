@@ -241,8 +241,10 @@ export default function AdminDashboard() {
                     <h4 className="text-sm font-semibold text-slate-900">{l.agency}</h4>
                     <div className="mt-1 text-xs text-slate-400">{l.city}: {details.city || "-"}</div>
                     <div className="text-xs text-slate-400">{l.country}: {details.country || "-"}</div>
+                    <div className="text-xs text-slate-400">Adresse: {details.address || "-"}</div>
                     <div className="text-xs text-slate-400">{l.email}: {details.contactEmail || "-"}</div>
                     <div className="text-xs text-slate-400">{l.phone}: {details.contactPhone || "-"}</div>
+                    {details.contactPersonName && <div className="text-xs text-slate-400">Contact: {details.contactPersonName}</div>}
                   </div>
                   <div>
                     <h4 className="text-sm font-semibold text-slate-900">{l.managerMain}</h4>
@@ -252,20 +254,29 @@ export default function AdminDashboard() {
                   </div>
                 </div>
 
+                {/* Legal data section */}
                 <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
                   <h4 className="mb-3 text-sm font-semibold text-slate-900">{l.adminDocs}</h4>
-                  <div className="grid grid-cols-3 gap-3">
+                  <div className="grid grid-cols-2 gap-3">
                     <div>
                       <div className="mb-1 text-xs text-slate-400">{l.rc}</div>
-                      <div className="text-sm font-semibold text-slate-900">{details.rcNumber || <span className="text-slate-400">{l.notProvided}</span>}</div>
+                      <div className="text-sm font-semibold text-slate-900">{details.tradeRegisterNumber || details.rcNumber || <span className="text-slate-400">{l.notProvided}</span>}</div>
                     </div>
                     <div>
                       <div className="mb-1 text-xs text-slate-400">{l.fiscal}</div>
-                      <div className="text-sm font-semibold text-slate-900">{details.fiscalNumber || <span className="text-slate-400">{l.notProvided}</span>}</div>
+                      <div className="text-sm font-semibold text-slate-900">{details.taxIdentificationNumber || details.fiscalNumber || <span className="text-slate-400">{l.notProvided}</span>}</div>
                     </div>
                     <div>
                       <div className="mb-1 text-xs text-slate-400">{l.iata}</div>
                       <div className="text-sm font-semibold text-slate-900">{details.iataCode || <span className="text-slate-400">{l.notProvided}</span>}</div>
+                    </div>
+                    <div>
+                      <div className="mb-1 text-xs text-slate-400">Consentement</div>
+                      <div className="text-sm font-semibold text-slate-900">
+                        {details.consentStatus ? <span className="text-emerald-600">✓ Accepté</span> : <span className="text-rose-600">✗ Non accepté</span>}
+                        {details.consentTimestamp && <span className="ml-2 text-xs text-slate-400">{new Date(details.consentTimestamp).toLocaleString()}</span>}
+                        {details.privacyPolicyVersion && <span className="ml-2 text-xs text-slate-400">v{details.privacyPolicyVersion}</span>}
+                      </div>
                     </div>
                   </div>
                 </div>

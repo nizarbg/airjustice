@@ -4,8 +4,7 @@ import Button from "../../../ui/Button";
 import Input from "../../../ui/Input";
 import { useLanguage } from "../../../context/LanguageContext";
 import PageLayout from "../../../components/PageLayout";
-
-const API = "http://localhost:8080";
+import { API, extractApiErrorMessage, parseApiBody } from "../partnerApi";
 
 const tr = {
   DE: { title: "Administrative Überprüfung", subtitle: "Bitte stellen Sie die folgenden Dokumente bereit, um Ihr Partnerkonto zu aktivieren.", emailLabel: "Konto-E-Mail *", rcLabel: "Handelsregisternummer *", fiscalLabel: "Steuernummer *", iataLabel: "IATA-Code (optional)", fileLabel: "Geschäftsgenehmigung", fileHint: "PDF oder Bild hochladen", formats: "Akzeptierte Formate: PDF, JPG, PNG", submitBtn: "Meine Dokumente validieren", loginLink: "Ich habe bereits ein Konto", home: "← Zurück", missingFile: "Bitte fügen Sie ein Beglaubigungsdokument hinzu.", success: "Dokumente übermittelt. Ihr Antrag wartet nun auf Genehmigung." },
@@ -53,8 +52,8 @@ export default function PartnerVerification() {
         method: "POST",
         body,
       });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.message || "Error");
+      const data = await parseApiBody(res);
+      if (!res.ok) throw new Error(extractApiErrorMessage(data, "Erreur lors de l'envoi des documents"));
 
       setSuccess(l.success);
       window.setTimeout(() => nav("/partner/login"), 1200);
