@@ -5,6 +5,13 @@ import { useLanguage } from "../../context/LanguageContext";
 import PageLayout from "../../components/PageLayout";
 import { API, extractApiErrorMessage, parseApiBody } from "./partnerApi";
 
+const makeId = () => {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+  return `id-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+};
+
 /* ───────────────────────── Static data ───────────────────────── */
 
 const COUNTRIES = [
@@ -97,6 +104,12 @@ const tr = {
     pwdMismatch: "Les mots de passe ne correspondent pas.",
     phoneFormat: "Numéro de téléphone invalide.",
     consentRequired: "Vous devez accepter la politique de confidentialité.",
+    address: "Adresse",
+    docUpload: "Téléversement de documents",
+    docUploadSub: "Téléversez les documents requis ci-dessous. Vous pouvez téléverser plusieurs fichiers à la fois.",
+    chooseFiles: "Choisir les fichiers",
+    multipleFiles: "Vous pouvez téléverser plusieurs fichiers",
+    reqDocsTitle: "Documents requis",
   },
   EN: {
     title: "Agency Registration",
@@ -157,6 +170,12 @@ const tr = {
     pwdMismatch: "Passwords do not match.",
     phoneFormat: "Invalid phone number.",
     consentRequired: "You must accept the privacy policy.",
+    address: "Address",
+    docUpload: "Document Upload",
+    docUploadSub: "Upload the required documents below. You can upload multiple files at once.",
+    chooseFiles: "Choose files",
+    multipleFiles: "You can upload multiple files",
+    reqDocsTitle: "Required documents",
   },
   DE: {
     title: "Agenturregistrierung",
@@ -217,6 +236,12 @@ const tr = {
     pwdMismatch: "Die Passwörter stimmen nicht überein.",
     phoneFormat: "Ungültige Telefonnummer.",
     consentRequired: "Sie müssen die Datenschutzerklärung akzeptieren.",
+    address: "Adresse",
+    docUpload: "Dokumenten-Upload",
+    docUploadSub: "Laden Sie die erforderlichen Dokumente unten hoch. Sie können mehrere Dateien auf einmal hochladen.",
+    chooseFiles: "Dateien auswählen",
+    multipleFiles: "Sie können mehrere Dateien hochladen",
+    reqDocsTitle: "Erforderliche Dokumente",
   },
   AR: {
     title: "تسجيل وكالة سفر",
@@ -277,6 +302,12 @@ const tr = {
     pwdMismatch: "كلمات المرور غير متطابقة.",
     phoneFormat: "رقم الهاتف غير صالح.",
     consentRequired: "يجب قبول سياسة الخصوصية.",
+    address: "العنوان",
+    docUpload: "تحميل المستندات",
+    docUploadSub: "قم بتحميل المستندات المطلوبة أدناه. يمكنك تحميل عدة ملفات في آن واحد.",
+    chooseFiles: "اختر الملفات",
+    multipleFiles: "يمكنك تحميل عدة ملفات",
+    reqDocsTitle: "المستندات المطلوبة",
   },
 };
 
@@ -305,7 +336,8 @@ function fmtSize(bytes) {
 const inputCls =
   "h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none transition focus:border-red-500 focus:ring-2 focus:ring-red-500/20";
 const labelCls = "text-sm font-medium text-slate-700";
-const sectionTitleCls = "text-xs font-semibold uppercase tracking-wide text-slate-400 mb-3";
+const mainTitleCls = "text-lg font-bold text-slate-800 mb-2";
+const subTitleCls   = "text-[0.9375rem] font-semibold text-slate-700 mb-1";
 
 function Field({ label, children }) {
   return (
@@ -392,7 +424,6 @@ function Tooltip({ tip, children }) {
 /* ───────────────────────── Main component ───────────────────────── */
 
 export default function PartnerApply() {
-  const nav = useNavigate();
   const { language } = useLanguage();
   const l = tr[language] || tr.FR;
   const isRTL = language === "AR";
@@ -432,7 +463,7 @@ export default function PartnerApply() {
       const ext = file.name.split(".").pop().toLowerCase();
       if (!valid.includes(ext) || file.size > max) { setErr(l.docHint); continue; }
       toAdd.push({
-        id: Date.now() + Math.random(),
+        id: makeId(),
         file,
         name: file.name,
         size: file.size,
@@ -573,12 +604,12 @@ export default function PartnerApply() {
                 <button
                   type="button"
                   onClick={() => { if (s < step) setStep(s); }}
-                  className={`flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold transition
-                    ${step === s ? "bg-red-600 text-white shadow-md shadow-red-300" : step > s ? "bg-emerald-500 text-white" : "bg-slate-200 text-slate-500"}`}
+                  className={`flex h-9 w-9 items-center justify-center rounded-full text-sm font-bold transition
+                    ${step === s ? "bg-red-600 text-white shadow-md shadow-red-300" : step > s ? "bg-emerald-500 text-white" : "border-2 border-slate-300 bg-white text-slate-400"}`}
                 >
                   {step > s ? "✓" : s}
                 </button>
-                {s < 3 && <div className={`h-0.5 w-10 rounded-full ${step > s ? "bg-emerald-400" : "bg-slate-200"}`} />}
+                {s < 3 && <div className={`h-0.5 w-12 rounded-full ${step > s ? "bg-emerald-400" : "bg-slate-200"}`} />}
               </div>
             ))}
           </div>
@@ -594,38 +625,39 @@ export default function PartnerApply() {
               <>
                 {/* Company Info */}
                 <section className="grid gap-4">
-                  <h4 className={sectionTitleCls}>{l.companyInfo}</h4>
-                  <Field label={l.agencyName}>
-                    <input name="agencyName" value={form.agencyName} onChange={set} required className={inputCls} />
-                  </Field>
-                  <Field label={l.country}>
-                    <select name="country" value={form.country} onChange={set} required className={inputCls}>
-                      {COUNTRIES.map((c) => <option key={c.code} value={c.code}>{c.label}</option>)}
-                    </select>
-                  </Field>
+                  <h4 className={mainTitleCls}>{l.companyInfo}</h4>
+                  <div className="grid sm:grid-cols-2 gap-3">
+                    <Field label={l.agencyName}>
+                      <input name="agencyName" value={form.agencyName} onChange={set} required placeholder="e.g. TravelTodo" className={inputCls} />
+                    </Field>
+                    <Field label={l.country}>
+                      <select name="country" value={form.country} onChange={set} required className={inputCls}>
+                        {COUNTRIES.map((c) => <option key={c.code} value={c.code}>{c.label}</option>)}
+                      </select>
+                    </Field>
+                  </div>
+                </section>
 
-                  {/* Address Line 1 */}
+                {/* Address */}
+                <section className="grid gap-4">
+                  <h4 className={subTitleCls}>{l.address}</h4>
                   <div>
-                    <p className="text-xs font-medium text-slate-400 mb-2">{l.addressLine1}</p>
                     <div className="grid grid-cols-2 gap-3">
                       <Field label={l.streetName}>
-                        <input name="streetName" value={form.streetName} onChange={set} required className={inputCls} />
+                        <input name="streetName" value={form.streetName} onChange={set} required placeholder="e.g. Rue de la Paix" className={inputCls} />
                       </Field>
                       <Field label={l.houseNumber}>
-                        <input name="houseNumber" value={form.houseNumber} onChange={set} required className={inputCls} />
+                        <input name="houseNumber" value={form.houseNumber} onChange={set} required placeholder="e.g. 12" className={inputCls} />
                       </Field>
                     </div>
                   </div>
-
-                  {/* Address Line 2 */}
                   <div>
-                    <p className="text-xs font-medium text-slate-400 mb-2">{l.addressLine2}</p>
                     <div className="grid grid-cols-2 gap-3">
                       <Field label={l.postalCode}>
-                        <input name="postalCode" value={form.postalCode} onChange={set} required className={inputCls} />
+                        <input name="postalCode" value={form.postalCode} onChange={set} required placeholder="e.g. 1000" className={inputCls} />
                       </Field>
                       <Field label={l.city}>
-                        <input name="city" value={form.city} onChange={set} required className={inputCls} />
+                        <input name="city" value={form.city} onChange={set} required placeholder="e.g. Tunis" className={inputCls} />
                       </Field>
                     </div>
                   </div>
@@ -633,13 +665,15 @@ export default function PartnerApply() {
 
                 {/* Owner / Legal Representative */}
                 <section className="grid gap-4">
-                  <h4 className={sectionTitleCls}>{l.ownerRep}</h4>
-                  <Field label={l.contactName}>
-                    <input name="contactPersonName" value={form.contactPersonName} onChange={set} required className={inputCls} />
-                  </Field>
-                  <Field label={l.contactEmail}>
-                    <input type="email" name="contactEmail" value={form.contactEmail} onChange={set} required className={inputCls} />
-                  </Field>
+                  <h4 className={subTitleCls}>{l.ownerRep}</h4>
+                  <div className="grid sm:grid-cols-2 gap-3">
+                    <Field label={l.contactName}>
+                      <input name="contactPersonName" value={form.contactPersonName} onChange={set} required placeholder="e.g. John Doe" className={inputCls} />
+                    </Field>
+                    <Field label={l.contactEmail}>
+                      <input type="email" name="contactEmail" value={form.contactEmail} onChange={set} required placeholder="e.g. contact@traveltodo.com" className={inputCls} />
+                    </Field>
+                  </div>
                   <PhoneInput
                     label={l.contactPhone}
                     codeName="contactPhoneCode" codeValue={form.contactPhoneCode}
@@ -650,13 +684,15 @@ export default function PartnerApply() {
 
                 {/* Legal Company Details */}
                 <section className="grid gap-4">
-                  <h4 className={sectionTitleCls}>{l.legalData}</h4>
-                  <Field label={l.tradeRegister}>
-                    <input name="tradeRegisterNumber" value={form.tradeRegisterNumber} onChange={set} required className={inputCls} />
-                  </Field>
-                  <Field label={l.taxId}>
-                    <input name="taxIdentificationNumber" value={form.taxIdentificationNumber} onChange={set} required className={inputCls} />
-                  </Field>
+                  <h4 className={subTitleCls}>{l.legalData}</h4>
+                  <div className="grid sm:grid-cols-2 gap-3">
+                    <Field label={l.tradeRegister}>
+                      <input name="tradeRegisterNumber" value={form.tradeRegisterNumber} onChange={set} required placeholder="e.g. TR123456" className={inputCls} />
+                    </Field>
+                    <Field label={l.taxId}>
+                      <input name="taxIdentificationNumber" value={form.taxIdentificationNumber} onChange={set} required placeholder="e.g. 123456789" className={inputCls} />
+                    </Field>
+                  </div>
                 </section>
 
                 <Button type="button" onClick={() => { if (validateStep1()) setStep(2); }}>
@@ -669,7 +705,7 @@ export default function PartnerApply() {
             {step === 2 && (
               <>
                 <section className="grid gap-4">
-                  <h4 className={sectionTitleCls}>{l.adminUser}</h4>
+                  <h4 className={mainTitleCls}>{l.adminUser}</h4>
                   <Field label={l.managerName}>
                     <input name="managerName" value={form.managerName} onChange={set} required className={inputCls} />
                   </Field>
@@ -702,48 +738,65 @@ export default function PartnerApply() {
             {/* ════════════ STEP 3 ════════════ */}
             {step === 3 && (
               <>
-                {/* Required documents list */}
+                {/* Document Upload */}
                 <section>
-                  <h4 className={sectionTitleCls}>{l.documents}</h4>
-                  <ul className="mb-4 grid gap-2">
-                    {[
-                      { label: l.docRne, tip: l.tipRne },
-                      { label: l.docId, tip: l.tipId },
-                      { label: l.docLicense, tip: l.tipLicense },
-                    ].map(({ label, tip }) => (
-                      <li key={label} className="flex items-center gap-2 text-sm text-slate-700">
-                        <span className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-red-100 text-xs font-bold text-red-600">•</span>
-                        {label}
-                        <Tooltip tip={tip}>
-                          <span className="ml-1 inline-flex h-4 w-4 cursor-help select-none items-center justify-center rounded-full border border-slate-300 text-[10px] text-slate-400">i</span>
-                        </Tooltip>
-                      </li>
-                    ))}
-                  </ul>
+                  <h4 className={mainTitleCls}>{l.docUpload}</h4>
+                  <p className="mt-1 mb-4 text-sm text-slate-500">{l.docUploadSub}</p>
 
-                  <p className="mb-3 text-xs text-slate-400">{l.docHint}</p>
+                  {/* Required docs info box */}
+                  <div className="mb-4 rounded-xl border border-blue-200 bg-blue-50 p-4">
+                    <div className="flex items-center gap-2 mb-3 text-sm font-semibold text-blue-800">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      {l.reqDocsTitle}
+                    </div>
+                    <ul className="ml-2 grid gap-2">
+                      {[
+                        { label: l.docRne, tip: l.tipRne },
+                        { label: l.docId, tip: l.tipId },
+                        { label: l.docLicense, tip: l.tipLicense },
+                      ].map(({ label, tip }) => (
+                        <li key={label} className="flex items-center gap-2 text-sm text-blue-900">
+                          <span className="h-1.5 w-1.5 flex-shrink-0 rounded-full bg-blue-500" />
+                          {label}
+                          <Tooltip tip={tip}>
+                            <span className="ml-1 inline-flex h-4 w-4 cursor-help select-none items-center justify-center rounded-full border border-blue-300 text-[10px] text-blue-500">i</span>
+                          </Tooltip>
+                        </li>
+                      ))}
+                    </ul>
+                    <p className="mt-3 text-xs text-slate-500">{l.docHint}</p>
+                  </div>
 
                   {/* Drag & Drop zone */}
                   <div
                     onDragOver={handleDragOver}
                     onDragLeave={handleDragLeave}
                     onDrop={handleDrop}
-                    onClick={() => fileInputRef.current?.click()}
-                    className={`flex cursor-pointer flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed p-10 transition
+                    className={`flex flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed p-10 transition
                       ${isDragging ? "border-red-500 bg-red-50" : "border-slate-300 bg-slate-50 hover:border-red-400 hover:bg-red-50/40"}`}
                   >
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 16.5V9.75m0 0 3 3m-3-3-3 3M6.75 19.5a4.5 4.5 0 01-1.41-8.775 5.25 5.25 0 0110.233-2.33 3 3 0 013.758 3.848A3.752 3.752 0 0118 19.5H6.75z" />
                     </svg>
-                    <p className="text-sm font-medium text-slate-600">{l.dragHere}</p>
-                    <p className="text-xs text-slate-400">{l.orBrowse}</p>
+                    <p className="text-base font-semibold text-slate-700">{l.dragHere}</p>
+                    <p className="text-xs text-slate-400">or</p>
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="rounded-lg border border-slate-300 bg-white px-5 py-2 text-sm font-medium text-slate-700 shadow-sm transition hover:border-slate-400 hover:bg-slate-50"
+                    >
+                      {l.chooseFiles}
+                    </button>
+                    <p className="text-xs text-slate-400">{l.multipleFiles}</p>
                     <input ref={fileInputRef} type="file" multiple accept=".pdf,.jpg,.jpeg,.png" onChange={handleFileInput} className="hidden" />
                   </div>
                 </section>
 
                 {/* Uploaded documents table */}
                 <section>
-                  <h4 className={sectionTitleCls}>{l.uploadedTable}</h4>
+                  <h4 className={subTitleCls}>{l.uploadedTable}{uploadedFiles.length > 0 ? ` (${uploadedFiles.length})` : ""}</h4>
                   {uploadedFiles.length === 0 ? (
                     <p className="text-sm italic text-slate-400">{l.noFiles}</p>
                   ) : (

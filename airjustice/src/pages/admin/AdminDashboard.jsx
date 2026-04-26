@@ -40,6 +40,131 @@ async function api(path, token, options = {}) {
   return data;
 }
 
+function DetailsPanel({ details, detailsLoading, selectedId, err, success, verifyForm, setVerifyForm, onVerify, onApprove, onReject, onSetStatus, l, statusLabels }) {
+  const nextStatus = details ? STATUS_NEXT[details.status] : null;
+
+  if (!selectedId) return <p className="text-sm text-slate-400">{l.selectItem}</p>;
+  if (detailsLoading || !details) return <p className="text-sm text-slate-400">{l.loading}</p>;
+
+  const canAct = details.status !== "APPROVED" && details.status !== "REJECTED";
+
+  return (
+    <div className="flex flex-col gap-5">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h3 className="text-lg font-bold text-slate-900">{details.agencyName}</h3>
+          <div className="text-sm text-slate-500">{l.manager}: <b>{details.managerName || "-"}</b></div>
+        </div>
+        <Badge status={details.status} statusLabels={statusLabels} />
+      </div>
+
+      {(err || success) && (
+        <div className={err ? "rounded-xl border border-rose-300 bg-rose-50 px-3 py-2 text-sm text-rose-700" : "rounded-xl border border-emerald-300 bg-emerald-50 px-3 py-2 text-sm text-emerald-700"}>
+          {err || success}
+        </div>
+      )}
+
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <h4 className="text-sm font-semibold text-slate-900">{l.agency}</h4>
+          <div className="mt-1 text-xs text-slate-400">{l.city}: {details.city || "-"}</div>
+          <div className="text-xs text-slate-400">{l.country}: {details.country || "-"}</div>
+          <div className="text-xs text-slate-400">Adresse: {details.address || "-"}</div>
+          <div className="text-xs text-slate-400">{l.email}: {details.contactEmail || "-"}</div>
+          <div className="text-xs text-slate-400">{l.phone}: {details.contactPhone || "-"}</div>
+          {details.contactPersonName && <div className="text-xs text-slate-400">Contact: {details.contactPersonName}</div>}
+        </div>
+        <div>
+          <h4 className="text-sm font-semibold text-slate-900">{l.managerMain}</h4>
+          <div className="mt-1 text-xs text-slate-400">{l.name}: {details.managerName || "-"}</div>
+          <div className="text-xs text-slate-400">{l.email}: {details.managerEmail || "-"}</div>
+          <div className="text-xs text-slate-400">{l.phone}: {details.managerPhone || "-"}</div>
+        </div>
+      </div>
+
+      <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+        <h4 className="mb-3 text-sm font-semibold text-slate-900">{l.adminDocs}</h4>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <div className="mb-1 text-xs text-slate-400">{l.rc}</div>
+            <div className="text-sm font-semibold text-slate-900">{details.tradeRegisterNumber || details.rcNumber || <span className="text-slate-400">{l.notProvided}</span>}</div>
+          </div>
+          <div>
+            <div className="mb-1 text-xs text-slate-400">{l.fiscal}</div>
+            <div className="text-sm font-semibold text-slate-900">{details.taxIdentificationNumber || details.fiscalNumber || <span className="text-slate-400">{l.notProvided}</span>}</div>
+          </div>
+          <div>
+            <div className="mb-1 text-xs text-slate-400">{l.iata}</div>
+            <div className="text-sm font-semibold text-slate-900">{details.iataCode || <span className="text-slate-400">{l.notProvided}</span>}</div>
+          </div>
+          <div>
+            <div className="mb-1 text-xs text-slate-400">Consentement</div>
+            <div className="text-sm font-semibold text-slate-900">
+              {details.consentStatus ? <span className="text-emerald-600">✓ Accepté</span> : <span className="text-rose-600">✗ Non accepté</span>}
+              {details.consentTimestamp && <span className="ml-2 text-xs text-slate-400">{new Date(details.consentTimestamp).toLocaleString()}</span>}
+              {details.privacyPolicyVersion && <span className="ml-2 text-xs text-slate-400">v{details.privacyPolicyVersion}</span>}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="rounded-xl border border-slate-200 bg-white p-4">
+        <h4 className="mb-3 text-sm font-semibold text-slate-900">{l.validateSection}</h4>
+        <div className="grid grid-cols-3 gap-3">
+          <Input label={l.rc} value={verifyForm.rcNumber} onChange={(e) => setVerifyForm({ ...verifyForm, rcNumber: e.target.value })} />
+          <Input label={l.fiscal} value={verifyForm.fiscalNumber} onChange={(e) => setVerifyForm({ ...verifyForm, fiscalNumber: e.target.value })} />
+          <Input label={l.iata} value={verifyForm.iataCode} onChange={(e) => setVerifyForm({ ...verifyForm, iataCode: e.target.value })} />
+        </div>
+        <div className="mt-3 flex justify-end">
+          <Button variant="secondary" onClick={onVerify}>{l.saveVerify}</Button>
+        </div>
+      </div>
+
+      <div>
+        <h4 className="text-sm font-semibold text-slate-900">{l.receivedDocs}</h4>
+        {details.documents?.length ? (
+          <div className="mt-3 flex flex-col gap-3">
+            {details.documents.map((doc) => (
+              <div key={doc.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white p-3">
+                <div>
+                  <b className="text-sm text-slate-900">{doc.filename}</b>
+                  <div className="text-xs text-slate-400">{doc.type} • {new Date(doc.uploadedAt).toLocaleString()}</div>
+                </div>
+                <a className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50" href={`${API}/api/admin/partners/documents/${doc.id}/download`} target="_blank" rel="noreferrer">{l.download}</a>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="mt-2 text-sm text-slate-400">{l.noDocs}</p>
+        )}
+      </div>
+
+      <div className="rounded-xl border border-slate-200 bg-white p-4">
+        <h4 className="mb-3 text-sm font-semibold text-slate-900">{l.actions}</h4>
+        <div className="flex flex-wrap gap-2">
+          {nextStatus && (
+            <Button onClick={() => onSetStatus(nextStatus)}>
+              ➡️ {l.goTo} {statusLabels[nextStatus] || nextStatus}
+            </Button>
+          )}
+          {canAct && <Button onClick={onApprove}>✅ {l.approve}</Button>}
+          {canAct && <Button variant="ghost" onClick={onReject}>❌ {l.reject}</Button>}
+        </div>
+        <hr className="my-4 border-slate-200" />
+        <div className="mb-2 text-xs text-slate-400">{l.forceStatus}</div>
+        <div className="flex flex-wrap gap-2">
+          {["SUBMITTED", "CONTACT_IN_PROGRESS", "DOCUMENTS_REQUESTED", "DOCUMENTS_RECEIVED", "VERIFICATION_IN_PROGRESS", "APPROVED"].map((s) => (
+            <button key={s} type="button" onClick={() => onSetStatus(s)} disabled={details.status === s}
+              className={`rounded-full border px-2.5 py-1 text-xs font-semibold transition ${details.status === s ? "border-red-500 bg-red-600 text-white" : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"} disabled:opacity-50`}>
+              {statusLabels[s]}
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function Badge({ status, statusLabels }) {
   const colors = {
     SUBMITTED:                "bg-amber-50 border-amber-300 text-amber-700",
@@ -75,9 +200,14 @@ export default function AdminDashboard() {
   const [err, setErr] = useState("");
   const [success, setSuccess] = useState("");
 
+  const apiAction = async (fn) => {
+    setErr(""); setSuccess("");
+    try { await fn(); }
+    catch (error) { setErr(error.message); }
+  };
+
   const loadApplications = async (nextStatus = status) => {
-    setLoading(true);
-    setErr("");
+    setLoading(true); setErr("");
     try {
       const data = await api(`/api/admin/partners/applications?status=${encodeURIComponent(nextStatus)}`, adminToken);
       setItems(Array.isArray(data) ? data : []);
@@ -88,8 +218,7 @@ export default function AdminDashboard() {
 
   const loadDetails = async (id) => {
     if (!id) return;
-    setDetailsLoading(true);
-    setErr("");
+    setDetailsLoading(true); setErr("");
     try {
       const data = await api(`/api/admin/partners/applications/${id}`, adminToken);
       setDetails(data);
@@ -103,56 +232,43 @@ export default function AdminDashboard() {
 
   const groupedStats = useMemo(() => items.reduce((acc, i) => { acc[i.status] = (acc[i.status] || 0) + 1; return acc; }, {}), [items]);
 
-  const setApplicationStatus = async (newStatus) => {
-    if (!selectedId) return;
-    setErr(""); setSuccess("");
-    try {
+  const setApplicationStatus = (newStatus) =>
+    apiAction(async () => {
       const data = await api(`/api/admin/partners/applications/${selectedId}/status`, adminToken, {
         method: "PUT", body: JSON.stringify({ status: newStatus }),
       });
       setDetails(data);
       setSuccess(`${l.statusUpdated} ${statusLabels[newStatus] || newStatus}`);
       await loadApplications();
-    } catch (error) { setErr(error.message); }
-  };
+    });
 
-  const verifyAccount = async () => {
-    if (!selectedId) return;
-    setErr(""); setSuccess("");
-    try {
+  const verifyAccount = () =>
+    apiAction(async () => {
       const data = await api(`/api/admin/partners/applications/${selectedId}/verify`, adminToken, {
         method: "PUT", body: JSON.stringify(verifyForm),
       });
       setDetails(data);
       setSuccess(l.verified);
       await loadApplications();
-    } catch (error) { setErr(error.message); }
-  };
+    });
 
-  const approveAccount = async () => {
-    if (!selectedId) return;
-    setErr(""); setSuccess("");
-    try {
+  const approveAccount = () =>
+    apiAction(async () => {
       const data = await api(`/api/admin/partners/applications/${selectedId}/approve`, adminToken, { method: "PUT" });
       setDetails(data);
       setSuccess(l.approved);
       await loadApplications();
-    } catch (error) { setErr(error.message); }
-  };
+    });
 
-  const rejectAccount = async () => {
-    if (!selectedId) return;
+  const rejectAccount = () => {
     if (!window.confirm(l.rejectConfirm)) return;
-    setErr(""); setSuccess("");
-    try {
+    apiAction(async () => {
       await api(`/api/admin/partners/applications/${selectedId}`, adminToken, { method: "DELETE" });
       setSuccess(l.rejected);
       setSelectedId(null); setDetails(null);
       await loadApplications();
-    } catch (error) { setErr(error.message); }
+    });
   };
-
-  const nextStatus = details ? STATUS_NEXT[details.status] : null;
 
   return (
     <PageLayout>
@@ -216,132 +332,21 @@ export default function AdminDashboard() {
           </div>
 
           <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-xl">
-            {!selectedId ? (
-              <p className="text-sm text-slate-400">{l.selectItem}</p>
-            ) : detailsLoading ? (
-              <p className="text-sm text-slate-400">{l.loading}</p>
-            ) : details ? (
-              <div className="flex flex-col gap-5">
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div>
-                    <h3 className="text-lg font-bold text-slate-900">{details.agencyName}</h3>
-                    <div className="text-sm text-slate-500">{l.manager}: <b>{details.managerName || "-"}</b></div>
-                  </div>
-                  <Badge status={details.status} statusLabels={statusLabels} />
-                </div>
-
-                {(err || success) && (
-                  <div className={err ? "rounded-xl border border-rose-300 bg-rose-50 px-3 py-2 text-sm text-rose-700" : "rounded-xl border border-emerald-300 bg-emerald-50 px-3 py-2 text-sm text-emerald-700"}>
-                    {err || success}
-                  </div>
-                )}
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <h4 className="text-sm font-semibold text-slate-900">{l.agency}</h4>
-                    <div className="mt-1 text-xs text-slate-400">{l.city}: {details.city || "-"}</div>
-                    <div className="text-xs text-slate-400">{l.country}: {details.country || "-"}</div>
-                    <div className="text-xs text-slate-400">Adresse: {details.address || "-"}</div>
-                    <div className="text-xs text-slate-400">{l.email}: {details.contactEmail || "-"}</div>
-                    <div className="text-xs text-slate-400">{l.phone}: {details.contactPhone || "-"}</div>
-                    {details.contactPersonName && <div className="text-xs text-slate-400">Contact: {details.contactPersonName}</div>}
-                  </div>
-                  <div>
-                    <h4 className="text-sm font-semibold text-slate-900">{l.managerMain}</h4>
-                    <div className="mt-1 text-xs text-slate-400">{l.name}: {details.managerName || "-"}</div>
-                    <div className="text-xs text-slate-400">{l.email}: {details.managerEmail || "-"}</div>
-                    <div className="text-xs text-slate-400">{l.phone}: {details.managerPhone || "-"}</div>
-                  </div>
-                </div>
-
-                {/* Legal data section */}
-                <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-                  <h4 className="mb-3 text-sm font-semibold text-slate-900">{l.adminDocs}</h4>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <div className="mb-1 text-xs text-slate-400">{l.rc}</div>
-                      <div className="text-sm font-semibold text-slate-900">{details.tradeRegisterNumber || details.rcNumber || <span className="text-slate-400">{l.notProvided}</span>}</div>
-                    </div>
-                    <div>
-                      <div className="mb-1 text-xs text-slate-400">{l.fiscal}</div>
-                      <div className="text-sm font-semibold text-slate-900">{details.taxIdentificationNumber || details.fiscalNumber || <span className="text-slate-400">{l.notProvided}</span>}</div>
-                    </div>
-                    <div>
-                      <div className="mb-1 text-xs text-slate-400">{l.iata}</div>
-                      <div className="text-sm font-semibold text-slate-900">{details.iataCode || <span className="text-slate-400">{l.notProvided}</span>}</div>
-                    </div>
-                    <div>
-                      <div className="mb-1 text-xs text-slate-400">Consentement</div>
-                      <div className="text-sm font-semibold text-slate-900">
-                        {details.consentStatus ? <span className="text-emerald-600">✓ Accepté</span> : <span className="text-rose-600">✗ Non accepté</span>}
-                        {details.consentTimestamp && <span className="ml-2 text-xs text-slate-400">{new Date(details.consentTimestamp).toLocaleString()}</span>}
-                        {details.privacyPolicyVersion && <span className="ml-2 text-xs text-slate-400">v{details.privacyPolicyVersion}</span>}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="rounded-xl border border-slate-200 bg-white p-4">
-                  <h4 className="mb-3 text-sm font-semibold text-slate-900">{l.validateSection}</h4>
-                  <div className="grid grid-cols-3 gap-3">
-                    <Input label={l.rc} value={verifyForm.rcNumber} onChange={(e) => setVerifyForm({ ...verifyForm, rcNumber: e.target.value })} />
-                    <Input label={l.fiscal} value={verifyForm.fiscalNumber} onChange={(e) => setVerifyForm({ ...verifyForm, fiscalNumber: e.target.value })} />
-                    <Input label={l.iata} value={verifyForm.iataCode} onChange={(e) => setVerifyForm({ ...verifyForm, iataCode: e.target.value })} />
-                  </div>
-                  <div className="mt-3 flex justify-end">
-                    <Button variant="secondary" onClick={verifyAccount}>{l.saveVerify}</Button>
-                  </div>
-                </div>
-
-                <div>
-                  <h4 className="text-sm font-semibold text-slate-900">{l.receivedDocs}</h4>
-                  {details.documents?.length ? (
-                    <div className="mt-3 flex flex-col gap-3">
-                      {details.documents.map((doc) => (
-                        <div key={doc.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white p-3">
-                          <div>
-                            <b className="text-sm text-slate-900">{doc.filename}</b>
-                            <div className="text-xs text-slate-400">{doc.type} • {new Date(doc.uploadedAt).toLocaleString()}</div>
-                          </div>
-                          <a className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50" href={`${API}/api/admin/partners/documents/${doc.id}/download`} target="_blank" rel="noreferrer">{l.download}</a>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="mt-2 text-sm text-slate-400">{l.noDocs}</p>
-                  )}
-                </div>
-
-                <div className="rounded-xl border border-slate-200 bg-white p-4">
-                  <h4 className="mb-3 text-sm font-semibold text-slate-900">{l.actions}</h4>
-                  <div className="flex flex-wrap gap-2">
-                    {nextStatus && (
-                      <Button onClick={() => setApplicationStatus(nextStatus)}>
-                        ➡️ {l.goTo} {statusLabels[nextStatus] || nextStatus}
-                      </Button>
-                    )}
-                    {details.status !== "APPROVED" && details.status !== "REJECTED" && (
-                      <Button onClick={approveAccount}>✅ {l.approve}</Button>
-                    )}
-                    {details.status !== "REJECTED" && details.status !== "APPROVED" && (
-                      <Button variant="ghost" onClick={rejectAccount}>❌ {l.reject}</Button>
-                    )}
-                  </div>
-                  <hr className="my-4 border-slate-200" />
-                  <div className="mb-2 text-xs text-slate-400">{l.forceStatus}</div>
-                  <div className="flex flex-wrap gap-2">
-                    {["SUBMITTED", "CONTACT_IN_PROGRESS", "DOCUMENTS_REQUESTED", "DOCUMENTS_RECEIVED", "VERIFICATION_IN_PROGRESS", "APPROVED"].map((s) => (
-                      <button key={s} type="button" onClick={() => setApplicationStatus(s)} disabled={details.status === s}
-                        className={`rounded-full border px-2.5 py-1 text-xs font-semibold transition ${details.status === s ? "border-red-500 bg-red-600 text-white" : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"} disabled:opacity-50`}>
-                        {statusLabels[s]}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <p className="text-sm text-slate-400">{l.loading}</p>
-            )}
+            <DetailsPanel
+              details={details}
+              detailsLoading={detailsLoading}
+              selectedId={selectedId}
+              err={err}
+              success={success}
+              verifyForm={verifyForm}
+              setVerifyForm={setVerifyForm}
+              onVerify={verifyAccount}
+              onApprove={approveAccount}
+              onReject={rejectAccount}
+              onSetStatus={setApplicationStatus}
+              l={l}
+              statusLabels={statusLabels}
+            />
           </div>
         </div>
       </main>
