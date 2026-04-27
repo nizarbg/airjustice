@@ -442,6 +442,7 @@ export default function PartnerApply() {
   });
   const [uploadedFiles, setUploadedFiles] = useState([]);
   const [isDragging, setIsDragging] = useState(false);
+  const [previewFile, setPreviewFile] = useState(null); // { name, url, isPdf }
   const [showPwd, setShowPwd] = useState(false);
   const [showPwdConfirm, setShowPwdConfirm] = useState(false);
   const [err, setErr] = useState("");
@@ -480,6 +481,16 @@ export default function PartnerApply() {
   const handleFileInput = (e) => processFiles(Array.from(e.target.files));
   const removeFile = (id) => setUploadedFiles((p) => p.filter((f) => f.id !== id));
   const updateDocType = (id, val) => setUploadedFiles((p) => p.map((f) => (f.id === id ? { ...f, docType: val } : f)));
+
+  const openPreview = (f) => {
+    const url = URL.createObjectURL(f.file);
+    const isPdf = f.file.type === "application/pdf" || f.name.toLowerCase().endsWith(".pdf");
+    setPreviewFile({ name: f.name, url, isPdf });
+  };
+  const closePreview = () => {
+    if (previewFile?.url) URL.revokeObjectURL(previewFile.url);
+    setPreviewFile(null);
+  };
 
   /* ── Validation ── */
   const validateStep1 = () => {
@@ -794,68 +805,53 @@ export default function PartnerApply() {
                   </div>
                 </section>
 
-                {/* Uploaded documents table */}
-                <section>
-                  <h4 className={subTitleCls}>{l.uploadedTable}{uploadedFiles.length > 0 ? ` (${uploadedFiles.length})` : ""}</h4>
-                  {uploadedFiles.length === 0 ? (
-                    <p className="text-sm italic text-slate-400">{l.noFiles}</p>
-                  ) : (
-                    <div className="overflow-x-auto rounded-xl border border-slate-200">
-                      <table className="min-w-full text-sm">
-                        <thead className="bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500">
-                          <tr>
-                            <th className="px-4 py-3 text-left">{l.colName}</th>
-                            <th className="px-4 py-3 text-left">{l.colType}</th>
-                            <th className="px-4 py-3 text-left">{l.colSize}</th>
-                            <th className="px-4 py-3 text-left">{l.colDate}</th>
-                            <th className="px-4 py-3 text-center">{l.colAction}</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100">
-                          {uploadedFiles.map((f) => (
-                            <tr key={f.id} className="transition hover:bg-slate-50/60">
-                              {/* File name */}
-                              <td className="max-w-[180px] px-4 py-3">
-                                <div className="flex items-center gap-2 truncate">
-                                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 flex-shrink-0 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                                  </svg>
-                                  <span className="truncate text-slate-700">{f.name}</span>
-                                </div>
-                              </td>
-                              {/* Doc type */}
-                              <td className="px-4 py-3">
-                                <select
-                                  value={f.docType}
-                                  onChange={(e) => updateDocType(f.id, e.target.value)}
-                                  className={`rounded-lg border px-2 py-1 text-xs outline-none focus:border-red-500 transition
-                                    ${f.docType
-                                      ? "border-emerald-300 bg-emerald-50 text-emerald-700 font-medium"
-                                      : "border-slate-300 bg-white text-slate-700"}`}
-                                >
-                                  <option value="">{l.docTypeOther}</option>
-                                  {DOC_TYPE_KEYS.map((k) => (
-                                    <option key={k} value={k}>{docTypeLabel(k)}</option>
-                                  ))}
-                                </select>
-                              </td>
-                              {/* Size */}
-                              <td className="whitespace-nowrap px-4 py-3 text-slate-500">{fmtSize(f.size)}</td>
-                              {/* Date */}
-                              <td className="whitespace-nowrap px-4 py-3 text-slate-500">{f.date}</td>
-                              {/* Delete */}
-                              <td className="px-4 py-3 text-center">
-                                <button
-                                  type="button"
-                                  onClick={() => removeFile(f.id)}
-                                  className="inline-flex items-center justify-center rounded-lg p-1.5 text-rose-400 transition hover:bg-rose-50 hover:text-rose-600"
-                                >
-                                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                    <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                  </svg>
-                                </button>
-                              </td>
-                            </tr>
+                 {/* Uploaded documents table */}
+                 <section>
+                   <h4 className={subTitleCls}>{l.uploadedTable}{uploadedFiles.length > 0 ? ` (${uploadedFiles.length})` : ""}</h4>
+                   {uploadedFiles.length === 0 ? (
+                     <p className="text-sm italic text-slate-400">{l.noFiles}</p>
+                   ) : (
+                     <div className="overflow-x-auto rounded-xl border border-slate-200">
+                       <table className="min-w-full text-sm">
+                         <thead className="bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                           <tr>
+                             <th className="px-4 py-3 text-left">{l.colName}</th>
+                             <th className="px-4 py-3 text-left">{l.colSize}</th>
+                             <th className="px-4 py-3 text-center">{l.colAction}</th>
+                           </tr>
+                         </thead>
+                         <tbody className="divide-y divide-slate-100">
+                           {uploadedFiles.map((f) => (
+                             <tr key={f.id} className="transition hover:bg-slate-50/60">
+                               {/* File name – click to preview */}
+                               <td className="px-4 py-3">
+                                 <button
+                                   type="button"
+                                   onClick={() => openPreview(f)}
+                                   className="flex items-center gap-2 text-left group"
+                                 >
+                                   <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 flex-shrink-0 text-slate-400 group-hover:text-red-500 transition" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                     <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                   </svg>
+                                   <span className="truncate max-w-[200px] text-slate-700 group-hover:text-red-600 group-hover:underline transition">{f.name}</span>
+                                   <span className="text-[10px] text-slate-400 group-hover:text-red-400 transition">👁</span>
+                                 </button>
+                               </td>
+                               {/* Size */}
+                               <td className="whitespace-nowrap px-4 py-3 text-slate-500">{fmtSize(f.size)}</td>
+                               {/* Delete */}
+                               <td className="px-4 py-3 text-center">
+                                 <button
+                                   type="button"
+                                   onClick={() => removeFile(f.id)}
+                                   className="inline-flex items-center justify-center rounded-lg p-1.5 text-rose-400 transition hover:bg-rose-50 hover:text-rose-600"
+                                 >
+                                   <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                     <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                   </svg>
+                                 </button>
+                               </td>
+                             </tr>
                           ))}
                         </tbody>
                       </table>
@@ -885,6 +881,53 @@ export default function PartnerApply() {
                     ) : l.createBtn}
                   </Button>
                 </div>
+
+                {/* ── File preview modal ── */}
+                {previewFile && (
+                  <div
+                    className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
+                    onClick={closePreview}
+                  >
+                    <div
+                      className="relative flex w-full max-w-4xl flex-col rounded-2xl bg-white shadow-2xl overflow-hidden"
+                      style={{ maxHeight: "90vh" }}
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      {/* Modal header */}
+                      <div className="flex items-center justify-between gap-3 border-b border-slate-200 px-5 py-3">
+                        <span className="truncate text-sm font-semibold text-slate-800">{previewFile.name}</span>
+                        <button
+                          type="button"
+                          onClick={closePreview}
+                          className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full text-slate-500 hover:bg-slate-100 hover:text-slate-800 transition"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </button>
+                      </div>
+                      {/* Preview content */}
+                      <div className="flex-1 overflow-auto bg-slate-100">
+                        {previewFile.isPdf ? (
+                          <iframe
+                            src={previewFile.url}
+                            title={previewFile.name}
+                            className="h-full w-full"
+                            style={{ minHeight: "75vh" }}
+                          />
+                        ) : (
+                          <div className="flex items-center justify-center p-4 h-full">
+                            <img
+                              src={previewFile.url}
+                              alt={previewFile.name}
+                              className="max-h-[75vh] max-w-full rounded-xl object-contain shadow"
+                            />
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
               </>
             )}
           </form>

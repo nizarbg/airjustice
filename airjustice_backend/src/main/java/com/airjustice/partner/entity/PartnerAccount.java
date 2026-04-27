@@ -18,6 +18,10 @@ public class PartnerAccount {
     @Enumerated(EnumType.STRING)
     private PartnerStatus status = PartnerStatus.PENDING;
 
+    // Submission timestamp
+    @Column(updatable = false)
+    private Instant submittedAt = Instant.now();
+
     // Agency info
     private String agencyName;
     private String city;
@@ -48,4 +52,12 @@ public class PartnerAccount {
     // Balance + alerts
     private BigDecimal prepaidBalance = BigDecimal.ZERO;
     private BigDecimal lowBalanceThreshold = new BigDecimal("50");
+
+    // Compliance checklist (set by admin reviewer)
+    private boolean identityVerified = false;
+    private boolean licenseValid = false;
+    private boolean companyRegistered = false;
+
+    @Column(columnDefinition = "TEXT")
+    private String reviewNotes;
 }

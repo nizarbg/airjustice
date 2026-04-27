@@ -9,9 +9,11 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/admin/partners")
@@ -23,13 +25,30 @@ public class OwnerAdminPartnerController {
     private final OwnerAdminService service;
     private final PartnerDocumentRepo documentRepo;
 
+    /** Centralized queue with filtering, sorting, and audit logging. */
     @GetMapping("/applications")
-    public List<OwnerAdminService.AdminPartnerApplicationDto> list(@RequestParam(defaultValue = "ALL") String status) {
-        return service.listApplications(status);
+    public List<OwnerAdminService.AdminPartnerApplicationDto> list(
+            @RequestParam(defaultValue = "")          String statuses,
+            @RequestParam(defaultValue = "")          String country,
+            @RequestParam(defaultValue = "")          String dateFrom,
+            @RequestParam(defaultValue = "")          String dateTo,
+            @RequestParam(defaultValue = "submittedAt") String sortBy,
+            @RequestParam(defaultValue = "asc")       String sortDir,
+            Authentication auth
+    ) {
+        String adminId = auth != null ? auth.getName() : "unknown";
+        service.logQueueViewAccessed(adminId);
+        return service.listApplications(statuses, country, dateFrom, dateTo, sortBy, sortDir);
     }
 
+    /** Full details of one application with audit logging. */
     @GetMapping("/applications/{id}")
-    public OwnerAdminService.AdminPartnerApplicationDetailsDto details(@PathVariable Long id) {
+    public OwnerAdminService.AdminPartnerApplicationDetailsDto details(
+            @PathVariable Long id,
+            Authentication auth
+    ) {
+        String adminId = auth != null ? auth.getName() : "unknown";
+        service.logComplianceReviewAccessed(adminId, id);
         return service.getApplication(id);
     }
 
@@ -49,27 +68,34 @@ public class OwnerAdminPartnerController {
     @DeleteMapping("/applications/{id}")
     public ResponseEntity<?> reject(@PathVariable Long id) {
         service.rejectApplication(id);
-        return ResponseEntity.ok(java.util.Map.of("message", "Dossier rejeté et compte supprimé."));
+        return ResponseEntity.ok(Map.of("message", "Dossier rejeté et compte supprimé."));
     }
 
     @PutMapping("/applications/{id}/status")
     public OwnerAdminService.AdminPartnerApplicationDetailsDto setStatus(
             @PathVariable Long id,
-            @RequestBody java.util.Map<String, String> body
+            @RequestBody Map<String, String> body
     ) {
-        String newStatus = body.get("status");
-        return service.setApplicationStatus(id, newStatus);
+        return service.setApplicationStatus(id, body.get("status"));
+    }
+
+    /** Update compliance checklist and review notes. */
+    @PutMapping("/applications/{id}/checklist")
+    public OwnerAdminService.AdminPartnerApplicationDetailsDto updateChecklist(
+            @PathVariable Long id,
+            @RequestBody OwnerAdminService.AdminChecklistRequest req
+    ) {
+        return service.updateChecklist(id, req);
     }
 
     @GetMapping("/documents/{documentId}/download")
     public ResponseEntity<byte[]> download(@PathVariable Long documentId) {
         PartnerDocument doc = documentRepo.findById(documentId)
                 .orElseThrow(() -> new RuntimeException("Document introuvable."));
-
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + doc.getFilename() + "\"")
-                .contentType(MediaType.parseMediaType(doc.getContentType() == null ? MediaType.APPLICATION_OCTET_STREAM_VALUE : doc.getContentType()))
+                .contentType(MediaType.parseMediaType(
+                        doc.getContentType() == null ? MediaType.APPLICATION_OCTET_STREAM_VALUE : doc.getContentType()))
                 .body(doc.getContent());
     }
 }
-
